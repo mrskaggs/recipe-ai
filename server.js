@@ -116,9 +116,9 @@ app.get('/api/recipes', async (req, res) => {
         r.fat_g,
         r.notes,
         r.created_at,
-        array_agg(DISTINCT i.ingredient ORDER BY i.id) as ingredients,
-        array_agg(DISTINCT inst.instruction ORDER BY inst.step_number) as instructions,
-        array_agg(DISTINCT t.tag) as tags
+        COALESCE(array_agg(DISTINCT i.ingredient) FILTER (WHERE i.ingredient IS NOT NULL), '{}') as ingredients,
+        COALESCE(array_agg(DISTINCT inst.instruction ORDER BY inst.step_number) FILTER (WHERE inst.instruction IS NOT NULL), '{}') as instructions,
+        COALESCE(array_agg(DISTINCT t.tag) FILTER (WHERE t.tag IS NOT NULL), '{}') as tags
       FROM recipes r
       LEFT JOIN recipe_ingredients i ON r.id = i.recipe_id
       LEFT JOIN recipe_instructions inst ON r.id = inst.recipe_id
@@ -150,9 +150,9 @@ app.get('/api/recipes/:id', async (req, res) => {
         r.fat_g,
         r.notes,
         r.created_at,
-        array_agg(DISTINCT i.ingredient ORDER BY i.id) as ingredients,
-        array_agg(DISTINCT inst.instruction ORDER BY inst.step_number) as instructions,
-        array_agg(DISTINCT t.tag) as tags
+        COALESCE(array_agg(DISTINCT i.ingredient) FILTER (WHERE i.ingredient IS NOT NULL), '{}') as ingredients,
+        COALESCE(array_agg(DISTINCT inst.instruction ORDER BY inst.step_number) FILTER (WHERE inst.instruction IS NOT NULL), '{}') as instructions,
+        COALESCE(array_agg(DISTINCT t.tag) FILTER (WHERE t.tag IS NOT NULL), '{}') as tags
       FROM recipes r
       LEFT JOIN recipe_ingredients i ON r.id = i.recipe_id
       LEFT JOIN recipe_instructions inst ON r.id = inst.recipe_id
