@@ -116,15 +116,10 @@ app.get('/api/recipes', async (req, res) => {
         r.fat_g,
         r.notes,
         r.created_at,
-        COALESCE(array_agg(DISTINCT i.ingredient) FILTER (WHERE i.ingredient IS NOT NULL), '{}') as ingredients,
-        COALESCE(array_agg(inst.instruction ORDER BY inst.step_number) FILTER (WHERE inst.instruction IS NOT NULL), '{}') as instructions,
-        COALESCE(array_agg(DISTINCT t.tag) FILTER (WHERE t.tag IS NOT NULL), '{}') as tags
+        (SELECT COALESCE(array_agg(ingredient), '{}') FROM recipe_ingredients WHERE recipe_id = r.id) as ingredients,
+        (SELECT COALESCE(array_agg(instruction ORDER BY step_number), '{}') FROM recipe_instructions WHERE recipe_id = r.id) as instructions,
+        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags
       FROM recipes r
-      LEFT JOIN recipe_ingredients i ON r.id = i.recipe_id
-      LEFT JOIN recipe_instructions inst ON r.id = inst.recipe_id
-      LEFT JOIN recipe_tags rt ON r.id = rt.recipe_id
-      LEFT JOIN tags t ON rt.tag_id = t.id
-      GROUP BY r.id, r.title, r.servings, r.calories, r.protein_g, r.carbs_g, r.fat_g, r.notes, r.created_at
       ORDER BY r.created_at DESC
     `);
     
@@ -150,16 +145,11 @@ app.get('/api/recipes/:id', async (req, res) => {
         r.fat_g,
         r.notes,
         r.created_at,
-        COALESCE(array_agg(DISTINCT i.ingredient) FILTER (WHERE i.ingredient IS NOT NULL), '{}') as ingredients,
-        COALESCE(array_agg(inst.instruction ORDER BY inst.step_number) FILTER (WHERE inst.instruction IS NOT NULL), '{}') as instructions,
-        COALESCE(array_agg(DISTINCT t.tag) FILTER (WHERE t.tag IS NOT NULL), '{}') as tags
+        (SELECT COALESCE(array_agg(ingredient), '{}') FROM recipe_ingredients WHERE recipe_id = r.id) as ingredients,
+        (SELECT COALESCE(array_agg(instruction ORDER BY step_number), '{}') FROM recipe_instructions WHERE recipe_id = r.id) as instructions,
+        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags
       FROM recipes r
-      LEFT JOIN recipe_ingredients i ON r.id = i.recipe_id
-      LEFT JOIN recipe_instructions inst ON r.id = inst.recipe_id
-      LEFT JOIN recipe_tags rt ON r.id = rt.recipe_id
-      LEFT JOIN tags t ON rt.tag_id = t.id
       WHERE r.id = $1
-      GROUP BY r.id, r.title, r.servings, r.calories, r.protein_g, r.carbs_g, r.fat_g, r.notes, r.created_at
     `, [id]);
     
     if (result.rows.length === 0) {
