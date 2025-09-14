@@ -1,0 +1,62 @@
+COPY AND PASTE THIS DIRECTLY INTO PORTAINER WEB EDITOR:
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: recipe-postgres
+    environment:
+      POSTGRES_DB: recipes
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - recipe-network
+
+  api:
+    image: node:18-alpine
+    container_name: recipe-api
+    working_dir: /app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: recipes
+      DB_USER: postgres
+      DB_PASSWORD: password123
+      PORT: 3001
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./package.json:/app/package.json
+      - ./server.js:/app/server.js
+    command: sh -c "npm install --production && node server.js"
+    depends_on:
+      - postgres
+    networks:
+      - recipe-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  recipe-network:
+    driver: bridge
+
+INSTRUCTIONS:
+1. Go to Portainer -> Stacks -> Add stack
+2. Choose "Web editor"
+3. Copy and paste the YAML above
+4. Make sure you have package.json and server.js files available in Portainer's file manager
+5. Deploy the stack
+
+This version:
+- Uses standard Node.js image (no custom build)
+- Minimal configuration
+- No database init script (you can add data via API)
+- Should have no control character issues
