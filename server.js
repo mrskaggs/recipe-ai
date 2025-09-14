@@ -21,15 +21,79 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Test database connection
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('Error acquiring client', err.stack);
-  } else {
+// Initialize database and test connection
+async function initializeDatabase() {
+  const client = await pool.connect();
+  try {
     console.log('Connected to PostgreSQL database');
-    release();
+    
+    // Create tables if they don't exist
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS recipes (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        servings INTEGER DEFAULT 1,
+        calories INTEGER DEFAULT 0,
+        protein_g DECIMAL(5,1) DEFAULT 0,
+        carbs_g DECIMAL(5,1) DEFAULT 0,
+        fat_g DECIMAL(5,1) DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS recipe_ingredients (
+        id SERIAL PRIMARY KEY,
+        recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+        ingredient TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS recipe_instructions (
+        id SERIAL PRIMARY KEY,
+        recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+        step_number INTEGER NOT NULL,
+        instruction TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tags (
+        id SERIAL PRIMARY KEY,
+        tag VARCHAR(50) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS recipe_tags (
+        recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+        tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (recipe_id, tag_id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_title ON recipes(title)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at)`);
+    
+    console.log('Database tables initialized successfully');
+    
+  } catch (err) {
+    console.error('Error initializing database:', err);
+  } finally {
+    client.release();
   }
-});
+}
+
+// Initialize database on startup
+initializeDatabase().catch(console.error);
 
 // Routes
 
