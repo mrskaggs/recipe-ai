@@ -3,6 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { Pool } = require('pg');
 const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -259,9 +262,216 @@ app.post('/api/recipes', async (req, res) => {
   }
 });
 
+// Swagger/OpenAPI documentation
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.3',
+    info: {
+      title: 'Recipe API',
+      description: 'A REST API for managing recipes with ingredients, instructions, and nutritional information',
+      version: '1.0.0',
+      contact: {
+        name: 'Recipe API Support'
+      }
+    },
+    servers: [
+      {
+        url: `http://localhost:${port}`,
+        description: 'Local development server'
+      },
+      {
+        url: 'https://api.recipe-ai.com',
+        description: 'Production server'
+      }
+    ],
+    components: {
+      schemas: {
+        Recipe: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'integer',
+              description: 'Unique recipe identifier',
+              example: 1
+            },
+            title: {
+              type: 'string',
+              description: 'Recipe title',
+              example: 'Chicken Stir Fry'
+            },
+            servings: {
+              type: 'integer',
+              description: 'Number of servings',
+              example: 4
+            },
+            calories: {
+              type: 'integer',
+              description: 'Calories per serving',
+              example: 350
+            },
+            protein_g: {
+              type: 'number',
+              description: 'Protein in grams per serving',
+              example: 35.0
+            },
+            carbs_g: {
+              type: 'number',
+              description: 'Carbohydrates in grams per serving',
+              example: 15.0
+            },
+            fat_g: {
+              type: 'number',
+              description: 'Fat in grams per serving',
+              example: 12.0
+            },
+            notes: {
+              type: 'string',
+              description: 'Additional notes about the recipe',
+              example: 'Quick and easy dinner recipe'
+            },
+            ingredients: {
+              type: 'array',
+              description: 'List of ingredients',
+              items: {
+                type: 'string'
+              },
+              example: ['1 lb chicken breast', '2 cups broccoli', '1 bell pepper']
+            },
+            instructions: {
+              type: 'array',
+              description: 'Step-by-step cooking instructions',
+              items: {
+                type: 'string'
+              },
+              example: ['Cut chicken into pieces', 'Stir fry chicken', 'Add vegetables']
+            },
+            tags: {
+              type: 'array',
+              description: 'Recipe tags for categorization',
+              items: {
+                type: 'string'
+              },
+              example: ['chicken', 'stir-fry', 'healthy']
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Recipe creation timestamp',
+              example: '2023-12-01T10:00:00Z'
+            }
+          }
+        },
+        RecipeInput: {
+          type: 'object',
+          required: ['title'],
+          properties: {
+            title: {
+              type: 'string',
+              description: 'Recipe title',
+              example: 'Chicken Stir Fry'
+            },
+            servings: {
+              type: 'integer',
+              description: 'Number of servings',
+              default: 1,
+              example: 4
+            },
+            ingredients: {
+              type: 'array',
+              description: 'List of ingredients',
+              items: {
+                type: 'string'
+              },
+              example: ['1 lb chicken breast', '2 cups broccoli', '1 bell pepper']
+            },
+            instructions: {
+              type: 'array',
+              description: 'Step-by-step cooking instructions',
+              items: {
+                type: 'string'
+              },
+              example: ['Cut chicken into pieces', 'Stir fry chicken', 'Add vegetables']
+            },
+            macros_per_serving: {
+              type: 'object',
+              description: 'Nutritional information per serving',
+              properties: {
+                calories: {
+                  type: 'integer',
+                  description: 'Calories per serving',
+                  example: 350
+                },
+                protein_g: {
+                  type: 'number',
+                  description: 'Protein in grams per serving',
+                  example: 35.0
+                },
+                carbs_g: {
+                  type: 'number',
+                  description: 'Carbohydrates in grams per serving',
+                  example: 15.0
+                },
+                fat_g: {
+                  type: 'number',
+                  description: 'Fat in grams per serving',
+                  example: 12.0
+                }
+              }
+            },
+            tags: {
+              type: 'array',
+              description: 'Recipe tags for categorization',
+              items: {
+                type: 'string'
+              },
+              example: ['chicken', 'stir-fry', 'healthy']
+            },
+            notes: {
+              type: 'string',
+              description: 'Additional notes about the recipe',
+              example: 'Quick and easy dinner recipe'
+            }
+          }
+        },
+        Error: {
+          type: 'object',
+          properties: {
+            error: {
+              type: 'string',
+              description: 'Error message',
+              example: 'Internal server error'
+            }
+          }
+        }
+      }
+    }
+  },
+  apis: [] // We'll define the paths manually since we're using a custom spec
+};
+
+// Load OpenAPI spec from YAML file if it exists
+let swaggerSpec;
+try {
+  const yaml = require('js-yaml');
+  const swaggerDocument = yaml.load(fs.readFileSync(path.join(__dirname, 'openapi.yaml'), 'utf8'));
+  swaggerSpec = swaggerDocument;
+} catch (error) {
+  console.log('Using inline Swagger spec (YAML file not found or invalid)');
+  swaggerSpec = swaggerJsdoc(swaggerOptions);
+}
+
+// Swagger UI route
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Redirect root to API docs
+app.get('/', (req, res) => {
+  res.redirect('/api-docs');
+});
+
 // Start server
 app.listen(port, () => {
   console.log(`Recipe API server running on port ${port}`);
+  console.log(`API Documentation available at: http://localhost:${port}/api-docs`);
 });
 
 module.exports = app;
