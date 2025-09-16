@@ -27,6 +27,7 @@ Has been **RESOLVED** by updating the port configuration to use configurable por
    ```
    FRONTEND_PORT=8080
    API_PORT=3001
+   API_BASE_URL=/api
    ```
 6. Click **Deploy the stack**
 
@@ -39,6 +40,7 @@ If port 8080 is also occupied on your system, use different ports:
    ```
    FRONTEND_PORT=9080
    API_PORT=9001
+   API_BASE_URL=/api
    ```
 3. Access your app at: `http://your-server:9080`
 
@@ -52,6 +54,7 @@ If port 8080 is also occupied on your system, use different ports:
    ```
    FRONTEND_PORT=8080
    API_PORT=3001
+   API_BASE_URL=/api
    ```
 
 ## Environment Variables Reference
@@ -60,6 +63,7 @@ If port 8080 is also occupied on your system, use different ports:
 |----------|---------|-------------|
 | `FRONTEND_PORT` | 8080 | Port for web interface |
 | `API_PORT` | 3001 | Port for API endpoints |
+| `API_BASE_URL` | /api | API base URL for frontend (use /api for production) |
 | `POSTGRES_DB` | recipes | Database name |
 | `POSTGRES_USER` | postgres | Database username |
 | `POSTGRES_PASSWORD` | password123 | Database password |
