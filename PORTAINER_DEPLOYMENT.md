@@ -63,11 +63,50 @@ If port 8080 is also occupied on your system, use different ports:
 |----------|---------|-------------|
 | `FRONTEND_PORT` | 8080 | Port for web interface |
 | `API_PORT` | 3001 | Port for API endpoints |
-| `API_BASE_URL` | /api | API base URL for frontend (use /api for production) |
+| `API_BASE_URL` | /api | API base URL for frontend - see API URL Configuration below |
 | `POSTGRES_DB` | recipes | Database name |
 | `POSTGRES_USER` | postgres | Database username |
 | `POSTGRES_PASSWORD` | password123 | Database password |
 | `N8N_WEBHOOK_URL` | (fake URL) | Your n8n webhook URL |
+
+## API URL Configuration
+
+The `API_BASE_URL` determines how the frontend connects to the backend API. **IMPORTANT**: This is a build-time variable that gets compiled into the frontend during Docker build.
+
+### Option 1: Nginx Proxy (Recommended for Production)
+```
+API_BASE_URL=/api
+```
+- **How it works**: Frontend makes requests to `/api/recipes`, nginx proxies to `http://recipe-api:3001/api/recipes`
+- **Advantages**: Single port, cleaner URLs, better security
+- **Use when**: Deploying the full stack together
+- **Critical**: This must be set as an environment variable in Portainer for the build to work correctly
+
+### Option 2: Direct External API Access
+```
+API_BASE_URL=http://192.168.40.142:3001
+```
+- **How it works**: Frontend makes direct requests to external API server
+- **Use when**: API and frontend are deployed separately
+- **Note**: Replace `192.168.40.142:3001` with your actual API server address
+
+### Option 3: Internal Docker Network (Development)
+```
+API_BASE_URL=http://recipe-api:3001
+```
+- **How it works**: Frontend container connects directly to API container
+- **Use when**: Both containers are on the same Docker network
+- **Note**: Only works for server-side requests, not browser requests
+
+### ⚠️ Critical Fix Applied
+
+**Problem**: The frontend was making requests to `localhost:3001` instead of using the proxy, causing database connection issues.
+
+**Root Cause**: Vite environment variables are processed at build time, not runtime. The `VITE_API_BASE_URL` needs to be available during the Docker build process.
+
+**Solution**: Updated `Dockerfile.frontend` to accept `VITE_API_BASE_URL` as a build argument and updated `docker-compose.yml` to pass it correctly.
+
+**Result**: Frontend now correctly uses the configured API base URL and connects to the proper database through Docker networking.
 
 ## After Deployment
 

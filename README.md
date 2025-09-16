@@ -111,6 +111,22 @@ FRONTEND_PORT=9000 API_PORT=9001 docker-compose up -d
 ### Required for Deployment
 - `FRONTEND_PORT`: Port for frontend access (default: 8080)
 - `API_PORT`: Port for API access (default: 3001)
+- `API_BASE_URL`: API base URL for frontend (default: /api)
+
+### API URL Configuration Options
+Choose the appropriate `API_BASE_URL` based on your deployment:
+
+1. **Nginx Proxy (Recommended)**: `API_BASE_URL=/api`
+   - Frontend requests go to `/api/recipes`, nginx proxies to backend
+   - Single port access, better security
+
+2. **External API Server**: `API_BASE_URL=http://your-server-ip:3001`
+   - Direct connection to external API server
+   - Use when API and frontend are deployed separately
+
+3. **Docker Network**: `API_BASE_URL=http://recipe-api:3001`
+   - Direct container-to-container communication
+   - Only for development or server-side requests
 
 ### Optional Configuration
 - `POSTGRES_DB`: Database name (default: recipes)

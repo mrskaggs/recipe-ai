@@ -4,6 +4,12 @@ FROM node:18-alpine as build
 # Set working directory
 WORKDIR /app
 
+# Accept build argument for API base URL
+ARG VITE_API_BASE_URL=/api
+
+# Set environment variable for Vite
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 # Copy package files
 COPY frontend/package*.json ./
 
