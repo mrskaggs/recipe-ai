@@ -107,11 +107,55 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Recipe API is running' });
 });
 
-// GET all recipes
+// GET all recipes with pagination and filtering
 app.get('/api/recipes', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT 
+    const { page = 1, limit = 10, search, tags, sort = 'created_at', order = 'desc' } = req.query;
+
+    let whereClause = '';
+    let params = [];
+    let paramIndex = 1;
+
+    // Add search filter
+    if (search) {
+      whereClause += ` WHERE r.title ILIKE $${paramIndex}`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Add tags filter
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : [tags];
+      if (whereClause) {
+        whereClause += ' AND ';
+      } else {
+        whereClause += ' WHERE ';
+      }
+      whereClause += ` r.id IN (
+        SELECT rt.recipe_id FROM recipe_tags rt
+        JOIN tags t ON rt.tag_id = t.id
+        WHERE t.tag = ANY($${paramIndex})
+      )`;
+      params.push(tagArray);
+      paramIndex++;
+    }
+
+    // Validate sort field
+    const allowedSortFields = ['title', 'created_at', 'servings', 'calories'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'created_at';
+    const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+
+    // Calculate offset
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM recipes r${whereClause}`;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Get recipes with pagination
+    const query = `
+      SELECT
         r.id,
         r.title,
         r.servings,
@@ -125,10 +169,21 @@ app.get('/api/recipes', async (req, res) => {
         (SELECT COALESCE(array_agg(instruction ORDER BY step_number), '{}') FROM recipe_instructions WHERE recipe_id = r.id) as instructions,
         (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags
       FROM recipes r
-      ORDER BY r.created_at DESC
-    `);
-    
-    res.json(result.rows);
+      ${whereClause}
+      ORDER BY r.${sortField} ${sortOrder}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    params.push(parseInt(limit), offset);
+    const result = await pool.query(query, params);
+
+    res.json({
+      recipes: result.rows,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
   } catch (err) {
     console.error('Error fetching recipes:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -164,6 +219,63 @@ app.get('/api/recipes/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Error fetching recipe:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST submit recipe for processing (calls n8n webhook)
+app.post('/api/recipes/submit', async (req, res) => {
+  try {
+    const { title, recipeText, tags } = req.body;
+    
+    // Validate required fields
+    if (!recipeText) {
+      return res.status(400).json({ error: 'Recipe text is required' });
+    }
+
+    // Prepare data for n8n webhook
+    const webhookData = {
+      title: title || 'Untitled Recipe',
+      recipeText: recipeText,
+      tags: tags || []
+    };
+
+    // Get n8n webhook URL from environment
+    const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
+    
+    if (!N8N_WEBHOOK_URL) {
+      return res.status(500).json({ error: 'N8n webhook URL not configured' });
+    }
+
+    // Call n8n webhook
+    const axios = require('axios');
+    const webhookResponse = await axios.post(N8N_WEBHOOK_URL, webhookData, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000 // 30 second timeout
+    });
+
+    // Return the response from n8n
+    res.json({
+      message: 'Recipe submitted for processing',
+      jobId: webhookResponse.data.jobId || 'processing',
+      status: 'submitted'
+    });
+
+  } catch (err) {
+    console.error('Error submitting recipe to n8n:', err);
+    
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      return res.status(503).json({ error: 'Recipe processing service unavailable' });
+    }
+    
+    if (err.response) {
+      return res.status(err.response.status).json({ 
+        error: err.response.data?.error || 'Error processing recipe' 
+      });
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -259,6 +371,110 @@ app.post('/api/recipes', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     client.release();
+  }
+});
+
+// GET all tags with counts
+app.get('/api/tags', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        t.id,
+        t.tag as name,
+        COUNT(rt.recipe_id) as count
+      FROM tags t
+      LEFT JOIN recipe_tags rt ON t.id = rt.tag_id
+      GROUP BY t.id, t.tag
+      ORDER BY count DESC, t.tag ASC
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching tags:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET search recipes (alias for /api/recipes with search params)
+app.get('/api/recipes/search', async (req, res) => {
+  try {
+    const { q: search, tags, page = 1, limit = 10, sort = 'created_at', order = 'desc' } = req.query;
+
+    let whereClause = '';
+    let params = [];
+    let paramIndex = 1;
+
+    // Add search filter
+    if (search) {
+      whereClause += ` WHERE (r.title ILIKE $${paramIndex} OR r.notes ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Add tags filter
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : [tags];
+      if (whereClause) {
+        whereClause += ' AND ';
+      } else {
+        whereClause += ' WHERE ';
+      }
+      whereClause += ` r.id IN (
+        SELECT rt.recipe_id FROM recipe_tags rt
+        JOIN tags t ON rt.tag_id = t.id
+        WHERE t.tag = ANY($${paramIndex})
+      )`;
+      params.push(tagArray);
+      paramIndex++;
+    }
+
+    // Validate sort field
+    const allowedSortFields = ['title', 'created_at', 'servings', 'calories'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'created_at';
+    const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+
+    // Calculate offset
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM recipes r${whereClause}`;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Get recipes with pagination
+    const query = `
+      SELECT
+        r.id,
+        r.title,
+        r.servings,
+        r.calories,
+        r.protein_g,
+        r.carbs_g,
+        r.fat_g,
+        r.notes,
+        r.created_at,
+        (SELECT COALESCE(array_agg(ingredient), '{}') FROM recipe_ingredients WHERE recipe_id = r.id) as ingredients,
+        (SELECT COALESCE(array_agg(instruction ORDER BY step_number), '{}') FROM recipe_instructions WHERE recipe_id = r.id) as instructions,
+        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags
+      FROM recipes r
+      ${whereClause}
+      ORDER BY r.${sortField} ${sortOrder}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    params.push(parseInt(limit), offset);
+    const result = await pool.query(query, params);
+
+    res.json({
+      recipes: result.rows,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (err) {
+    console.error('Error searching recipes:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

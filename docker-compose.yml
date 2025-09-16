@@ -25,7 +25,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.api
     container_name: recipe-api
     environment:
       DB_HOST: postgres
@@ -35,11 +35,27 @@ services:
       DB_PASSWORD: password123
       PORT: 3001
       NODE_ENV: production
+      N8N_WEBHOOK_URL: https://n8n.wwwfake.com/webhook/6d9a4773-fb73-409c-b39a-cca1b6d82b41
     ports:
       - "3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - recipe-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: recipe-frontend
+    environment:
+      VITE_API_BASE_URL: http://api:3001
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
     networks:
       - recipe-network
     restart: unless-stopped
