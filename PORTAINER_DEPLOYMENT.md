@@ -75,12 +75,13 @@ The `API_BASE_URL` determines how the frontend connects to the backend API. **IM
 
 ### Option 1: Nginx Proxy (Recommended for Production)
 ```
-API_BASE_URL=/api
+API_BASE_URL=
 ```
-- **How it works**: Frontend makes requests to `/api/recipes`, nginx proxies to `http://recipe-api:3001/api/recipes`
+(Leave empty or don't set this variable)
+- **How it works**: Frontend makes requests to `/api/recipes`, nginx proxies to `http://api:3001/api/recipes`
 - **Advantages**: Single port, cleaner URLs, better security
 - **Use when**: Deploying the full stack together
-- **Critical**: This must be set as an environment variable in Portainer for the build to work correctly
+- **Critical**: Must be empty (or unset) to avoid double `/api` paths
 
 ### Option 2: Direct External API Access
 ```

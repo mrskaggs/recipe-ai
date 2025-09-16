@@ -3,8 +3,11 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
+// Remove trailing slash to avoid double slashes
+const baseURL = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+
 export const http: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: baseURL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
