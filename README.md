@@ -1,151 +1,244 @@
-# Recipe Tracker API
+# Recipe AI - Full Stack Recipe Management Application
 
-A Node.js Express API with PostgreSQL database for managing recipes, designed to work with n8n workflows.
+A complete recipe management application with React frontend, Node.js API, and PostgreSQL database, designed for production deployment.
 
 ## Features
 
-- RESTful API for recipe management
+### Frontend (React + TypeScript)
+- Modern React 18 with TypeScript and Vite
+- Responsive design with Tailwind CSS and shadcn/ui components
+- Recipe browsing, searching, and filtering
+- Print-friendly recipe cards
+- Form validation with React Hook Form and Zod
+- State management with TanStack Query and Zustand
+
+### Backend API
+- RESTful API with Express.js
 - PostgreSQL database with proper schema
-- Docker containerization
+- N8n workflow integration for recipe processing
 - Health check endpoints
-- Support for n8n workflow integration
+- Search and filtering capabilities
 
-## API Endpoints
+### Production Ready
+- Docker multi-stage builds
+- Nginx for static file serving
+- Non-root container security
+- Environment-based configuration
 
-### GET /health
-Health check endpoint
+## Quick Start
 
-### GET /api/recipes
-Get all recipes with ingredients, instructions, and tags
+### Using Docker Compose (Recommended)
 
-### GET /api/recipes/:id
-Get a specific recipe by ID
+1. Clone the repository
+2. Copy `.env` file and adjust ports if needed:
+   ```bash
+   cp .env .env.local
+   # Edit .env.local with your preferred ports
+   ```
+3. Run the application:
+   ```bash
+   docker-compose up -d
+   ```
+4. Access the application:
+   - Frontend: http://localhost:8080 (or your configured FRONTEND_PORT)
+   - API: http://localhost:3001 (or your configured API_PORT)
+   - API Documentation: http://localhost:3001/api-docs
 
-### POST /api/recipes
-Create a new recipe (accepts n8n workflow format)
+## Port Configuration
 
-Expected POST format:
-```json
-[
-  {
-    "output": {
-      "title": "Recipe Title",
-      "servings": 4,
-      "ingredients": ["ingredient 1", "ingredient 2"],
-      "instructions": ["step 1", "step 2"],
-      "macros_per_serving": {
-        "calories": 500,
-        "protein_g": 25,
-        "carbs_g": 50,
-        "fat_g": 15
-      },
-      "tags": ["tag1", "tag2"],
-      "notes": "Optional notes"
-    }
-  }
-]
+The application uses configurable ports to avoid conflicts:
+
+- **Frontend**: Port 8080 (default) - configurable via `FRONTEND_PORT`
+- **API**: Port 3001 (default) - configurable via `API_PORT`
+- **Database**: Port 5432 (internal to Docker network)
+
+### Changing Ports
+
+Edit the `.env` file or set environment variables:
+
+```bash
+# For different ports
+FRONTEND_PORT=9000
+API_PORT=9001
+```
+
+Or set them when running:
+```bash
+FRONTEND_PORT=9000 API_PORT=9001 docker-compose up -d
 ```
 
 ## Deployment with Portainer
 
-### Option 1: Using Git Repository (Recommended)
+### Method 1: Git Repository (Recommended)
 
 1. In Portainer, go to "Stacks" → "Add stack"
 2. Choose "Repository" as the build method
-3. Enter your Git repository URL
+3. Enter your Git repository URL: `https://github.com/mrskaggs/recipe-ai.git`
 4. Set the compose file path to `docker-compose.yml`
-5. Add environment variables if needed
+5. **Add environment variables** to avoid port conflicts:
+   ```
+   FRONTEND_PORT=8080
+   API_PORT=3001
+   ```
+   (Adjust ports as needed for your environment)
 6. Deploy the stack
 
-### Option 2: Upload ZIP File
+### Method 2: Upload Files
 
-**Easy way - Use the provided scripts:**
-1. Run `create-portainer-zip.bat` (Windows) or `create-portainer-zip.ps1` (PowerShell)
-2. This creates `recipe-api-portainer.zip` with all necessary files
+1. Create a ZIP file containing all project files
+2. In Portainer, go to "Stacks" → "Add stack"
+3. Choose "Upload" as the build method
+4. Upload your ZIP file
+5. **Set environment variables** before deploying:
+   ```
+   FRONTEND_PORT=8080
+   API_PORT=3001
+   ```
+6. Deploy the stack
 
-**Manual way - Create ZIP file containing:**
-   - `docker-compose.yml`
-   - `Dockerfile`
-   - `package.json`
-   - `server.js`
-   - `.dockerignore`
-   - `database/init.sql` (in database folder)
-
-**Deploy in Portainer:**
-1. In Portainer, go to "Stacks" → "Add stack"
-2. Choose "Upload" as the build method
-3. Upload your `recipe-api-portainer.zip` file
-4. Deploy the stack
-
-**Important:** Make sure the ZIP file maintains the folder structure (database/init.sql should be in a database folder within the ZIP)
-
-### Option 3: Copy-Paste
+### Method 3: Web Editor
 
 1. In Portainer, go to "Stacks" → "Add stack"
 2. Choose "Web editor"
 3. Copy and paste the contents of `docker-compose.yml`
-4. Make sure all files are available in the build context
+4. **Important**: Set environment variables in Portainer:
+   - `FRONTEND_PORT=8080` (or any available port)
+   - `API_PORT=3001` (or any available port)
+5. Deploy the stack
 
 ## Environment Variables
 
-The following environment variables are used:
+### Required for Deployment
+- `FRONTEND_PORT`: Port for frontend access (default: 8080)
+- `API_PORT`: Port for API access (default: 3001)
 
-- `DB_HOST`: PostgreSQL host (default: postgres)
-- `DB_PORT`: PostgreSQL port (default: 5432)
-- `DB_NAME`: Database name (default: recipes)
-- `DB_USER`: Database user (default: postgres)
-- `DB_PASSWORD`: Database password (default: password123)
-- `PORT`: API port (default: 3001)
-- `NODE_ENV`: Environment (default: development)
+### Optional Configuration
+- `POSTGRES_DB`: Database name (default: recipes)
+- `POSTGRES_USER`: Database user (default: postgres)
+- `POSTGRES_PASSWORD`: Database password (default: password123)
+- `N8N_WEBHOOK_URL`: Your n8n webhook URL for recipe processing
 
-## Testing the API
+## API Endpoints
 
-Once deployed, you can test the API:
+### Core Endpoints
+- `GET /health` - Health check
+- `GET /api/recipes` - Get all recipes with search/filter support
+- `GET /api/recipes/:id` - Get specific recipe
+- `POST /api/recipes` - Create new recipe
+- `GET /api/recipes/search` - Search recipes
+- `GET /api/recipes/tags` - Get available tags
 
-1. Health check: `GET http://your-host:3001/health`
-2. Get recipes: `GET http://your-host:3001/api/recipes`
-3. Create recipe: `POST http://your-host:3001/api/recipes`
+### Search Parameters
+- `q`: Search query (searches title, ingredients, instructions)
+- `tags`: Filter by tags (comma-separated)
+- `limit`: Number of results (default: 20)
+- `offset`: Pagination offset (default: 0)
 
-## Database Schema
+Example: `GET /api/recipes/search?q=chicken&tags=dinner,healthy&limit=10`
 
-The database includes the following tables:
-- `recipes`: Main recipe information
-- `recipe_ingredients`: Recipe ingredients
-- `recipe_instructions`: Step-by-step instructions
-- `tags`: Available tags
-- `recipe_tags`: Recipe-tag relationships
+## Recipe Submission
+
+The application supports two ways to add recipes:
+
+### 1. Direct Form Submission
+Use the frontend form to manually enter recipe details.
+
+### 2. N8n Webhook Integration
+Submit raw recipe text that gets processed by n8n workflow:
+
+```bash
+curl -X POST http://localhost:3001/api/recipes/submit \
+  -H "Content-Type: application/json" \
+  -d '{"recipeText": "Your raw recipe text here"}'
+```
 
 ## Troubleshooting
 
-### Portainer Build Errors
+### Port Conflicts
+If you get "address already in use" errors:
 
-If you get "failed to read dockerfile" errors:
-
-1. Ensure all files are in the same directory
-2. Check that the Dockerfile is named exactly `Dockerfile` (no extension)
-3. Verify the build context includes all necessary files
-4. Try using the explicit build context in docker-compose.yml:
-   ```yaml
-   build:
-     context: .
-     dockerfile: Dockerfile
+1. Check what's using the port: `netstat -tulpn | grep :3000`
+2. Change the port in `.env` file:
    ```
+   FRONTEND_PORT=8080
+   API_PORT=3001
+   ```
+3. Or set different ports in Portainer environment variables
 
 ### Database Connection Issues
-
-1. Check that PostgreSQL container is healthy
+1. Check container logs: `docker-compose logs postgres`
 2. Verify environment variables are set correctly
-3. Ensure the API container can reach the postgres container
-4. Check logs for connection errors
+3. Ensure containers are on the same network
+4. Wait for database initialization (can take 30-60 seconds)
+
+### Build Failures
+1. Ensure all files are present in build context
+2. Check Docker logs: `docker-compose logs api` or `docker-compose logs frontend`
+3. Verify Dockerfile paths are correct
+4. Clear Docker cache: `docker system prune -a`
 
 ## Development
 
-To run locally with Docker:
+### Local Development Setup
+
+1. Install dependencies:
+   ```bash
+   # Backend
+   cd api && npm install
+   
+   # Frontend
+   cd frontend && npm install
+   ```
+
+2. Set up environment variables:
+   ```bash
+   cp api/.env.example api/.env
+   cp frontend/.env.example frontend/.env
+   ```
+
+3. Run with Docker:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Or run separately:
+   ```bash
+   # Database
+   docker-compose up -d postgres
+   
+   # API (in api/ directory)
+   npm run dev
+   
+   # Frontend (in frontend/ directory)
+   npm run dev
+   ```
+
+### Testing
+
 ```bash
-docker compose up -d
+# Frontend tests
+cd frontend && npm test
+
+# API tests
+cd api && npm test
 ```
 
-To run in development mode:
-```bash
-npm install
-npm run dev
+## Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React Frontend│    │   Express API   │    │   PostgreSQL    │
+│   (Port 8080)   │◄──►│   (Port 3001)   │◄──►│   (Port 5432)   │
+│   Nginx + Vite  │    │   Node.js       │    │   Database      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │   N8n Webhook   │
+                       │   Integration   │
+                       └─────────────────┘
+```
+
+## License
+
+MIT License - see LICENSE file for details.
