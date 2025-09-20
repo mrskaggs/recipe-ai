@@ -8,7 +8,7 @@ const baseURL = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BAS
 
 export const http: AxiosInstance = axios.create({
   baseURL: baseURL,
-  timeout: 10000,
+  timeout: 60000, // Increased to 60 seconds to handle long-running AI processing
   headers: {
     'Content-Type': 'application/json',
   },

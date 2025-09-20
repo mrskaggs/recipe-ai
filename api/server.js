@@ -440,21 +440,37 @@ app.post('/api/recipes/submit', async (req, res) => {
       jobId: webhookResponse.data.jobId || 'processing',
       status: 'submitted'
     });
-
   } catch (err) {
     console.error('Error submitting recipe to n8n:', err);
-    
+
+    // Handle specific error types
     if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
-      return res.status(503).json({ error: 'Recipe processing service unavailable' });
-    }
-    
-    if (err.response) {
-      return res.status(err.response.status).json({ 
-        error: err.response.data?.error || 'Error processing recipe' 
+      return res.status(503).json({
+        error: 'Recipe processing service unavailable. Please try again later.',
+        details: 'The AI processing service is currently down.'
       });
     }
-    
-    res.status(500).json({ error: 'Internal server error' });
+
+    if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+      return res.status(504).json({
+        error: 'Recipe processing timed out. Your recipe may still be processing.',
+        details: 'The AI processing is taking longer than expected. Please check back later or try submitting again.'
+      });
+    }
+
+    if (err.response) {
+      // n8n returned an error response
+      return res.status(err.response.status).json({
+        error: err.response.data?.error || 'Error processing recipe',
+        details: err.response.data?.message || 'The AI processing service returned an error.'
+      });
+    }
+
+    // Generic server error
+    res.status(500).json({
+      error: 'Internal server error',
+      details: 'An unexpected error occurred while processing your recipe.'
+    });
   }
 });
 

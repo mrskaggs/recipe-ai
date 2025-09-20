@@ -9,18 +9,28 @@ const Home = () => {
   const [recipeText, setRecipeText] = useState('');
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submitMutation = useMutation({
     mutationFn: (data: SubmitRecipeRequest) => submitRecipe(data),
+    onMutate: () => {
+      setIsSubmitting(true);
+    },
     onSuccess: () => {
       setRecipeText('');
       setTitle('');
       setTags('');
+      setIsSubmitting(false);
       alert('Recipe submitted successfully! It will be processed shortly.');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Submission error:', error);
-      alert('Failed to submit recipe. Please try again.');
+      setIsSubmitting(false);
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to submit recipe. Please try again.';
+      alert(`Submission failed: ${errorMessage}`);
+    },
+    onSettled: () => {
+      setIsSubmitting(false);
     },
   });
 
@@ -115,10 +125,10 @@ const Home = () => {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={submitMutation.isPending}
+                disabled={submitMutation.isPending || isSubmitting}
                 className="inline-flex items-center px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {submitMutation.isPending ? (
+                {(submitMutation.isPending || isSubmitting) ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Processing...
