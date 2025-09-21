@@ -18,6 +18,10 @@ const Layout = ({ children }: LayoutProps) => {
     { name: 'Submit', href: '/submit', icon: Plus, requiresAuth: true },
   ];
 
+  const userNavigation = [
+    { name: 'Profile', href: '/profile', icon: User },
+  ];
+
   const handleLogout = () => {
     logout();
   };
@@ -80,6 +84,29 @@ const Layout = ({ children }: LayoutProps) => {
               <div className="flex items-center space-x-4">
                 {isAuthenticated ? (
                   <div className="flex items-center space-x-4">
+                    {/* User Navigation */}
+                    <nav className="flex space-x-4">
+                      {userNavigation.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = location.pathname === item.href;
+
+                        return (
+                          <Link
+                            key={item.name}
+                            to={item.href}
+                            className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                              isActive
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                            }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </nav>
+
                     <div className="flex items-center space-x-2 text-sm">
                       <User className="h-4 w-4" />
                       <span>{user?.username || user?.email}</span>

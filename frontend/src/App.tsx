@@ -9,6 +9,7 @@ import RecipeDetail from './features/recipes/pages/Detail';
 import Submit from './features/recipes/pages/Submit';
 import { Login } from './features/auth/pages/Login';
 import { Register } from './features/auth/pages/Register';
+import { Profile } from './features/auth/pages/Profile';
 import { AdminDashboard } from './features/admin/pages/AdminDashboard';
 
 // Create a client with enhanced configuration
@@ -80,6 +81,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <Submit />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/profile"
+                      element={
+                        <ProtectedRoute>
+                          <Profile />
                         </ProtectedRoute>
                       }
                     />
