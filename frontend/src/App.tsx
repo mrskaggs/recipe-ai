@@ -9,6 +9,7 @@ import RecipeDetail from './features/recipes/pages/Detail';
 import Submit from './features/recipes/pages/Submit';
 import { Login } from './features/auth/pages/Login';
 import { Register } from './features/auth/pages/Register';
+import { AdminDashboard } from './features/admin/pages/AdminDashboard';
 
 // Create a client with enhanced configuration
 const queryClient = new QueryClient({
@@ -79,6 +80,16 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <Submit />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Admin routes - require admin role */}
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute requiredRole="admin">
+                          <AdminDashboard />
                         </ProtectedRoute>
                       }
                     />

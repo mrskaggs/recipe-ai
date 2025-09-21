@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChefHat, Home, Search, Plus, LogIn, LogOut, User } from 'lucide-react';
+import { ChefHat, Home, Search, Plus, LogIn, LogOut, User, Shield } from 'lucide-react';
 import { useAuth } from '../features/auth/hooks/useAuth';
 import { Button } from './ui/button';
 
@@ -59,6 +59,21 @@ const Layout = ({ children }: LayoutProps) => {
                     </Link>
                   );
                 })}
+
+                {/* Admin link - only show for admin users */}
+                {isAuthenticated && user?.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      location.pathname === '/admin'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span>Admin</span>
+                  </Link>
+                )}
               </nav>
 
               {/* Authentication UI */}

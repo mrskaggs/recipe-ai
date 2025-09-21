@@ -10,6 +10,7 @@ const { authenticateToken } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -217,6 +218,9 @@ const mockTags = [
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Admin routes
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
