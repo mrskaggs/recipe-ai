@@ -2,10 +2,13 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import Home from './features/recipes/pages/Home';
 import Browse from './features/recipes/pages/Browse';
 import RecipeDetail from './features/recipes/pages/Detail';
 import Submit from './features/recipes/pages/Submit';
+import { Login } from './features/auth/pages/Login';
+import { Register } from './features/auth/pages/Register';
 
 // Create a client with enhanced configuration
 const queryClient = new QueryClient({
@@ -47,10 +50,38 @@ function App() {
               <main id="main-content" role="main">
                 <ErrorBoundary>
                   <Routes>
+                    {/* Public routes */}
                     <Route path="/" element={<Home />} />
                     <Route path="/browse" element={<Browse />} />
                     <Route path="/recipe/:id" element={<RecipeDetail />} />
-                    <Route path="/submit" element={<Submit />} />
+
+                    {/* Auth routes - redirect to home if already authenticated */}
+                    <Route
+                      path="/login"
+                      element={
+                        <ProtectedRoute requireAuth={false}>
+                          <Login />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/register"
+                      element={
+                        <ProtectedRoute requireAuth={false}>
+                          <Register />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Protected routes - require authentication */}
+                    <Route
+                      path="/submit"
+                      element={
+                        <ProtectedRoute>
+                          <Submit />
+                        </ProtectedRoute>
+                      }
+                    />
                   </Routes>
                 </ErrorBoundary>
               </main>

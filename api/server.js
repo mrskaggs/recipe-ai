@@ -1,12 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const { Pool } = require('pg');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const fs = require('fs');
-require('dotenv').config();
+const { pool } = require('./config/database');
+const { authenticateToken } = require('./middleware/auth');
+
+// Import routes
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -17,15 +20,6 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// PostgreSQL connection
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'recipes',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-});
-
 // Initialize database and test connection
 async function initializeDatabase() {
   try {
@@ -34,6 +28,18 @@ async function initializeDatabase() {
       console.log('Connected to PostgreSQL database');
 
       // Create tables if they don't exist
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          username VARCHAR(100) UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       await client.query(`
         CREATE TABLE IF NOT EXISTS recipes (
           id SERIAL PRIMARY KEY,
@@ -208,6 +214,9 @@ const mockTags = [
 ];
 
 // Routes
+
+// Auth routes
+app.use('/api/auth', authRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -402,7 +411,7 @@ app.get('/api/recipes/:id', async (req, res) => {
 });
 
 // POST submit recipe for processing (calls n8n webhook)
-app.post('/api/recipes/submit', async (req, res) => {
+app.post('/api/recipes/submit', authenticateToken, async (req, res) => {
   try {
     const { title, recipeText, tags } = req.body;
     

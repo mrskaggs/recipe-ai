@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChefHat, Home, Search, Plus } from 'lucide-react';
+import { ChefHat, Home, Search, Plus, LogIn, LogOut, User } from 'lucide-react';
+import { useAuth } from '../features/auth/hooks/useAuth';
+import { Button } from './ui/button';
 
 interface LayoutProps {
   children: ReactNode;
@@ -8,12 +10,17 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const { isAuthenticated, user, logout } = useAuth();
 
   const navigation = [
     { name: 'Home', href: '/', icon: Home },
     { name: 'Browse', href: '/browse', icon: Search },
-    { name: 'Submit', href: '/submit', icon: Plus },
+    { name: 'Submit', href: '/submit', icon: Plus, requiresAuth: true },
   ];
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,26 +33,67 @@ const Layout = ({ children }: LayoutProps) => {
               <span className="text-xl font-bold">Recipe AI</span>
             </Link>
 
-            <nav className="flex space-x-6">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
+            <div className="flex items-center space-x-6">
+              <nav className="flex space-x-6">
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.href;
+
+                  // Hide auth-required routes if not authenticated
+                  if (item.requiresAuth && !isAuthenticated) {
+                    return null;
+                  }
+
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              {/* Authentication UI */}
+              <div className="flex items-center space-x-4">
+                {isAuthenticated ? (
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2 text-sm">
+                      <User className="h-4 w-4" />
+                      <span>{user?.username || user?.email}</span>
+                      {user?.role === 'admin' && (
+                        <span className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded">
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleLogout}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/login">
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Login
+                      </Link>
+                    </Button>
+                    <Button size="sm" asChild>
+                      <Link to="/register">Sign Up</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </header>
