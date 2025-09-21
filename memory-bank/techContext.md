@@ -8,6 +8,7 @@
 - **Vite 5.1.0**: Fast build tool and development server with HMR
 - **Tailwind CSS 3.4.0**: Utility-first CSS framework for rapid UI development
 - **shadcn/ui**: High-quality React components built on Radix UI and Tailwind
+- **Radix UI**: Accessible, unstyled UI primitives (@radix-ui/react-tabs, @radix-ui/react-dialog, @radix-ui/react-alert-dialog, @radix-ui/react-select)
 - **React Router 6.20.0**: Declarative routing for React applications
 - **Zustand 4.4.0**: Lightweight state management solution
 - **TanStack Query 5.14.0**: Powerful data synchronization for React

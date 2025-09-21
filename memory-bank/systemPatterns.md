@@ -231,6 +231,17 @@ App
 │   ├── POST /login
 │   ├── POST /refresh
 │   └── POST /logout
+├── /admin
+│   ├── /users
+│   │   ├── GET / (list users with pagination/search)
+│   │   ├── GET /:id (get single user)
+│   │   ├── PUT /:id (update user)
+│   │   └── DELETE /:id (delete user)
+│   └── /recipes
+│       ├── GET / (list recipes for admin)
+│       ├── GET /:id (get single recipe)
+│       ├── PUT /:id (update recipe)
+│       └── DELETE /:id (delete recipe)
 ├── /recipes
 │   ├── GET / (list with pagination/filtering)
 │   ├── GET /search (search recipes)

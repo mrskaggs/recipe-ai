@@ -19,6 +19,9 @@ Recipe AI is a comprehensive full-stack web application for managing, discoverin
 - AI-powered recipe text processing
 - JWT-based authentication system
 - Role-based access control (admin/user)
+- **Admin Dashboard**: Complete user and recipe management interface
+- **User Management**: Admin tools for managing user accounts and roles
+- **Recipe Management**: Admin tools for editing and deleting recipes
 - RESTful API with OpenAPI documentation
 - Docker containerization for easy deployment
 
