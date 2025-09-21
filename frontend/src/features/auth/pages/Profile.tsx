@@ -9,7 +9,7 @@ import { Label } from '../../../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Separator } from '../../../components/ui/separator';
-import { Loader2, User, Mail, Shield } from 'lucide-react';
+import { Loader2, User, Shield } from 'lucide-react';
 
 // Profile update schema
 const profileSchema = z.object({
