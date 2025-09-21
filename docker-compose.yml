@@ -36,6 +36,11 @@ services:
       PORT: 3001
       NODE_ENV: production
       N8N_WEBHOOK_URL: https://n8n.wwwfake.com/webhook/6d9a4773-fb73-409c-b39a-cca1b6d82b41
+      JWT_SECRET: your-super-secret-jwt-key-change-this-in-production
+      JWT_EXPIRE: 1h
+      JWT_REFRESH_SECRET: your-super-secret-refresh-key-change-this-in-production
+      JWT_REFRESH_EXPIRE: 7d
+      BCRYPT_ROUNDS: 12
     ports:
       - "${API_PORT:-3001}:3001"
     depends_on:
