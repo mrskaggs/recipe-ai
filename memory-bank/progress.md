@@ -68,7 +68,7 @@
 - ✅ **Auth Store Integration**: Connect forms to authentication state
 - ✅ **Token Management**: Persistent token storage and refresh
 - ✅ **Protected Routes**: Route guards for authenticated users
-- ✅ **User Profile**: User profile management interface
+- ✅ **User Profile**: User profile management interface with editing and password change
 
 ### Recipe Management
 - ✅ **Recipe Creation Form**: Frontend form for manual recipe entry (AI-powered)
