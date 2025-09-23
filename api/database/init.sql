@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Create recipes table
 CREATE TABLE IF NOT EXISTS recipes (
     id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     servings INTEGER DEFAULT 1,
     calories INTEGER DEFAULT 0,
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS recipe_tags (
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_recipes_title ON recipes(title);
 CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at);
+CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
 CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe_id ON recipe_ingredients(recipe_id);
 CREATE INDEX IF NOT EXISTS idx_recipe_instructions_recipe_id ON recipe_instructions(recipe_id);
 CREATE INDEX IF NOT EXISTS idx_recipe_instructions_step ON recipe_instructions(recipe_id, step_number);

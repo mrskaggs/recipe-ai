@@ -44,6 +44,7 @@ async function initializeDatabase() {
       await client.query(`
         CREATE TABLE IF NOT EXISTS recipes (
           id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
           title VARCHAR(255) NOT NULL,
           servings INTEGER DEFAULT 1,
           calories INTEGER DEFAULT 0,
@@ -95,6 +96,7 @@ async function initializeDatabase() {
       // Create indexes
       await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_title ON recipes(title)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id)`);
 
       console.log('Database tables initialized successfully');
 
@@ -509,10 +511,11 @@ app.post('/api/recipes', async (req, res) => {
     
     // Insert recipe
     const recipeResult = await client.query(`
-      INSERT INTO recipes (title, servings, calories, protein_g, carbs_g, fat_g, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO recipes (user_id, title, servings, calories, protein_g, carbs_g, fat_g, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id
     `, [
+      null, // user_id - null for AI-generated recipes
       title,
       servings,
       macros_per_serving?.calories || 0,
@@ -578,6 +581,324 @@ app.post('/api/recipes', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     client.release();
+  }
+});
+
+// POST create recipe (authenticated users)
+app.post('/api/recipes/create', authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { title, servings, ingredients, instructions, nutrition, tags, notes } = req.body;
+    const userId = req.user.id; // From JWT token
+
+    // Validate required fields
+    if (!title) {
+      return res.status(400).json({ error: 'Recipe title is required' });
+    }
+
+    // Insert recipe
+    const recipeResult = await client.query(`
+      INSERT INTO recipes (user_id, title, servings, calories, protein_g, carbs_g, fat_g, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id
+    `, [
+      userId,
+      title,
+      servings || 1,
+      nutrition?.calories || 0,
+      nutrition?.protein || 0,
+      nutrition?.carbs || 0,
+      nutrition?.fat || 0,
+      notes || ''
+    ]);
+
+    const recipeId = recipeResult.rows[0].id;
+
+    // Insert ingredients
+    if (ingredients && ingredients.length > 0) {
+      for (const ingredient of ingredients) {
+        // Handle both string and object formats
+        const ingredientText = typeof ingredient === 'string' ? ingredient :
+          ingredient.qty ? `${ingredient.qty} ${ingredient.unit || ''} ${ingredient.item}`.trim() :
+          ingredient.item || '';
+
+        if (ingredientText) {
+          await client.query(`
+            INSERT INTO recipe_ingredients (recipe_id, ingredient)
+            VALUES ($1, $2)
+          `, [recipeId, ingredientText]);
+        }
+      }
+    }
+
+    // Insert instructions
+    if (instructions && instructions.length > 0) {
+      for (let i = 0; i < instructions.length; i++) {
+        const instruction = typeof instructions[i] === 'string' ? instructions[i] : instructions[i].text || '';
+        if (instruction) {
+          await client.query(`
+            INSERT INTO recipe_instructions (recipe_id, step_number, instruction)
+            VALUES ($1, $2, $3)
+          `, [recipeId, i + 1, instruction]);
+        }
+      }
+    }
+
+    // Insert tags
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        // Insert or get tag
+        const tagResult = await client.query(`
+          INSERT INTO tags (tag) VALUES ($1)
+          ON CONFLICT (tag) DO UPDATE SET tag = EXCLUDED.tag
+          RETURNING id
+        `, [tag]);
+
+        const tagId = tagResult.rows[0].id;
+
+        // Link recipe to tag
+        await client.query(`
+          INSERT INTO recipe_tags (recipe_id, tag_id)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `, [recipeId, tagId]);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: 'Recipe created successfully',
+      recipeId: recipeId
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creating recipe:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT update recipe (recipe owners only)
+app.put('/api/recipes/:id', authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { id } = req.params;
+    const { title, servings, ingredients, instructions, nutrition, tags, notes } = req.body;
+    const userId = req.user.id;
+
+    // Check if recipe exists and belongs to user
+    const recipeCheck = await client.query(
+      'SELECT user_id FROM recipes WHERE id = $1',
+      [id]
+    );
+
+    if (recipeCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    if (recipeCheck.rows[0].user_id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You can only edit your own recipes' });
+    }
+
+    // Update recipe
+    await client.query(`
+      UPDATE recipes
+      SET title = $1, servings = $2, calories = $3, protein_g = $4, carbs_g = $5, fat_g = $6, notes = $7, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+    `, [
+      title,
+      servings || 1,
+      nutrition?.calories || 0,
+      nutrition?.protein || 0,
+      nutrition?.carbs || 0,
+      nutrition?.fat || 0,
+      notes || '',
+      id
+    ]);
+
+    // Delete existing ingredients and instructions
+    await client.query('DELETE FROM recipe_ingredients WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM recipe_instructions WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM recipe_tags WHERE recipe_id = $1', [id]);
+
+    // Insert updated ingredients
+    if (ingredients && ingredients.length > 0) {
+      for (const ingredient of ingredients) {
+        const ingredientText = typeof ingredient === 'string' ? ingredient :
+          ingredient.qty ? `${ingredient.qty} ${ingredient.unit || ''} ${ingredient.item}`.trim() :
+          ingredient.item || '';
+
+        if (ingredientText) {
+          await client.query(`
+            INSERT INTO recipe_ingredients (recipe_id, ingredient)
+            VALUES ($1, $2)
+          `, [id, ingredientText]);
+        }
+      }
+    }
+
+    // Insert updated instructions
+    if (instructions && instructions.length > 0) {
+      for (let i = 0; i < instructions.length; i++) {
+        const instruction = typeof instructions[i] === 'string' ? instructions[i] : instructions[i].text || '';
+        if (instruction) {
+          await client.query(`
+            INSERT INTO recipe_instructions (recipe_id, step_number, instruction)
+            VALUES ($1, $2, $3)
+          `, [id, i + 1, instruction]);
+        }
+      }
+    }
+
+    // Insert updated tags
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        const tagResult = await client.query(`
+          INSERT INTO tags (tag) VALUES ($1)
+          ON CONFLICT (tag) DO UPDATE SET tag = EXCLUDED.tag
+          RETURNING id
+        `, [tag]);
+
+        const tagId = tagResult.rows[0].id;
+
+        await client.query(`
+          INSERT INTO recipe_tags (recipe_id, tag_id)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `, [id, tagId]);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'Recipe updated successfully',
+      recipeId: id
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error updating recipe:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE recipe (recipe owners only)
+app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Check if recipe exists and belongs to user
+    const recipeCheck = await client.query(
+      'SELECT user_id FROM recipes WHERE id = $1',
+      [id]
+    );
+
+    if (recipeCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    if (recipeCheck.rows[0].user_id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You can only delete your own recipes' });
+    }
+
+    // Delete recipe (CASCADE will handle related tables)
+    await client.query('DELETE FROM recipes WHERE id = $1', [id]);
+
+    res.json({ message: 'Recipe deleted successfully' });
+
+  } catch (err) {
+    console.error('Error deleting recipe:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET user's recipes
+app.get('/api/user/recipes', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get total count
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as total FROM recipes WHERE user_id = $1',
+      [userId]
+    );
+    const total = parseInt(countResult.rows[0].total);
+
+    // Get user's recipes
+    const result = await pool.query(`
+      SELECT
+        r.id,
+        r.title,
+        r.servings,
+        r.calories,
+        r.protein_g,
+        r.carbs_g,
+        r.fat_g,
+        r.notes,
+        r.created_at,
+        (SELECT COALESCE(array_agg(ingredient), '{}') FROM recipe_ingredients WHERE recipe_id = r.id) as ingredients,
+        (SELECT COALESCE(array_agg(instruction ORDER BY step_number), '{}') FROM recipe_instructions WHERE recipe_id = r.id) as instructions,
+        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags
+      FROM recipes r
+      WHERE r.user_id = $1
+      ORDER BY r.created_at DESC
+      LIMIT $2 OFFSET $3
+    `, [userId, parseInt(limit), offset]);
+
+    // Transform recipes
+    const transformedRecipes = result.rows.map(recipe => ({
+      id: recipe.id,
+      title: recipe.title,
+      summary: recipe.notes || undefined,
+      servings: recipe.servings,
+      totalTimeMin: undefined,
+      tags: recipe.tags || [],
+      imageUrl: undefined,
+      sourceUrl: undefined,
+      createdAt: recipe.created_at,
+      updatedAt: recipe.created_at,
+      ingredients: parseIngredients(recipe.ingredients || []),
+      steps: recipe.instructions || [],
+      nutrition: recipe.calories || recipe.protein_g || recipe.carbs_g || recipe.fat_g ? {
+        calories: recipe.calories || undefined,
+        protein: recipe.protein_g || undefined,
+        carbs: recipe.carbs_g || undefined,
+        fat: recipe.fat_g || undefined,
+      } : undefined,
+      author: undefined,
+      status: 'published',
+    }));
+
+    res.json({
+      recipes: transformedRecipes,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (err) {
+    console.error('Error fetching user recipes:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
