@@ -52,6 +52,7 @@ async function initializeDatabase() {
           carbs_g DECIMAL(5,1) DEFAULT 0,
           fat_g DECIMAL(5,1) DEFAULT 0,
           notes TEXT,
+          status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'processing', 'pending_review', 'published')),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -416,31 +417,50 @@ app.get('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// POST submit recipe for processing (calls n8n webhook)
+// POST submit recipe for processing (creates draft recipe, then calls n8n webhook)
 app.post('/api/recipes/submit', authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+
   try {
+    await client.query('BEGIN');
+
     const { title, recipeText, tags } = req.body;
-    
+    const userId = req.user.id;
+
     // Validate required fields
     if (!recipeText) {
       return res.status(400).json({ error: 'Recipe text is required' });
     }
 
+    // Create draft recipe immediately
+    const recipeResult = await client.query(`
+      INSERT INTO recipes (user_id, title, status, notes, created_at)
+      VALUES ($1, $2, 'processing', $3, CURRENT_TIMESTAMP)
+      RETURNING id
+    `, [userId, title || 'AI Recipe Processing...', recipeText]);
+
+    const recipeId = recipeResult.rows[0].id;
+
     // Prepare data for n8n webhook
     const webhookData = {
-      title: title || 'Untitled Recipe',
+      recipeId: recipeId,
       recipeText: recipeText,
+      userId: userId,
+      title: title || 'Untitled Recipe',
       tags: tags || []
     };
 
     // Get n8n webhook URL from environment
     const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
-    
+
     if (!N8N_WEBHOOK_URL) {
+      await client.query('ROLLBACK');
       return res.status(500).json({ error: 'N8n webhook URL not configured' });
     }
 
-    // Call n8n webhook
+    await client.query('COMMIT');
+
+    // Call n8n webhook (after commit to avoid long-running transaction)
     const axios = require('axios');
     const webhookResponse = await axios.post(N8N_WEBHOOK_URL, webhookData, {
       headers: {
@@ -449,13 +469,16 @@ app.post('/api/recipes/submit', authenticateToken, async (req, res) => {
       timeout: 30000 // 30 second timeout
     });
 
-    // Return the response from n8n
+    // Return success response
     res.json({
-      message: 'Recipe submitted for processing',
+      message: 'Recipe submitted for AI processing',
+      recipeId: recipeId,
       jobId: webhookResponse.data.jobId || 'processing',
-      status: 'submitted'
+      status: 'processing'
     });
+
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Error submitting recipe to n8n:', err);
 
     // Handle specific error types
@@ -486,6 +509,8 @@ app.post('/api/recipes/submit', authenticateToken, async (req, res) => {
       error: 'Internal server error',
       details: 'An unexpected error occurred while processing your recipe.'
     });
+  } finally {
+    client.release();
   }
 });
 
@@ -823,6 +848,218 @@ app.delete('/api/recipes/:id', authenticateToken, async (req, res) => {
 
   } catch (err) {
     console.error('Error deleting recipe:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT process recipe (n8n updates recipe with AI-processed data)
+app.put('/api/recipes/:id/process', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { id } = req.params;
+    const {
+      title,
+      servings,
+      ingredients,
+      instructions,
+      macros_per_serving,
+      tags,
+      notes
+    } = req.body;
+
+    // Update recipe with processed data
+    await client.query(`
+      UPDATE recipes
+      SET title = $1, servings = $2, calories = $3, protein_g = $4, carbs_g = $5, fat_g = $6,
+          notes = $7, status = 'pending_review', updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+    `, [
+      title,
+      servings || 1,
+      macros_per_serving?.calories || 0,
+      macros_per_serving?.protein_g || 0,
+      macros_per_serving?.carbs_g || 0,
+      macros_per_serving?.fat_g || 0,
+      notes || '',
+      id
+    ]);
+
+    // Delete existing ingredients and instructions
+    await client.query('DELETE FROM recipe_ingredients WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM recipe_instructions WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM recipe_tags WHERE recipe_id = $1', [id]);
+
+    // Insert processed ingredients
+    if (ingredients && ingredients.length > 0) {
+      for (const ingredient of ingredients) {
+        await client.query(`
+          INSERT INTO recipe_ingredients (recipe_id, ingredient)
+          VALUES ($1, $2)
+        `, [id, ingredient]);
+      }
+    }
+
+    // Insert processed instructions
+    if (instructions && instructions.length > 0) {
+      for (let i = 0; i < instructions.length; i++) {
+        await client.query(`
+          INSERT INTO recipe_instructions (recipe_id, step_number, instruction)
+          VALUES ($1, $2, $3)
+        `, [id, i + 1, instructions[i]]);
+      }
+    }
+
+    // Insert processed tags
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        const tagResult = await client.query(`
+          INSERT INTO tags (tag) VALUES ($1)
+          ON CONFLICT (tag) DO UPDATE SET tag = EXCLUDED.tag
+          RETURNING id
+        `, [tag]);
+
+        const tagId = tagResult.rows[0].id;
+
+        await client.query(`
+          INSERT INTO recipe_tags (recipe_id, tag_id)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `, [id, tagId]);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'Recipe processed successfully',
+      recipeId: id,
+      status: 'pending_review'
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error processing recipe:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT approve/edit recipe (user reviews and publishes)
+app.put('/api/recipes/:id/approve', authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { id } = req.params;
+    const { title, servings, ingredients, instructions, nutrition, tags, notes } = req.body;
+    const userId = req.user.id;
+
+    // Check if recipe exists, belongs to user, and is in pending_review status
+    const recipeCheck = await client.query(
+      'SELECT user_id, status FROM recipes WHERE id = $1',
+      [id]
+    );
+
+    if (recipeCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    if (recipeCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: 'You can only approve your own recipes' });
+    }
+
+    if (recipeCheck.rows[0].status !== 'pending_review') {
+      return res.status(400).json({ error: 'Recipe is not ready for review' });
+    }
+
+    // Update recipe with user edits and set to published
+    await client.query(`
+      UPDATE recipes
+      SET title = $1, servings = $2, calories = $3, protein_g = $4, carbs_g = $5, fat_g = $6,
+          notes = $7, status = 'published', updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+    `, [
+      title,
+      servings || 1,
+      nutrition?.calories || 0,
+      nutrition?.protein || 0,
+      nutrition?.carbs || 0,
+      nutrition?.fat || 0,
+      notes || '',
+      id
+    ]);
+
+    // Delete existing ingredients and instructions
+    await client.query('DELETE FROM recipe_ingredients WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM recipe_instructions WHERE recipe_id = $1', [id]);
+    await client.query('DELETE FROM recipe_tags WHERE recipe_id = $1', [id]);
+
+    // Insert updated ingredients
+    if (ingredients && ingredients.length > 0) {
+      for (const ingredient of ingredients) {
+        const ingredientText = typeof ingredient === 'string' ? ingredient :
+          ingredient.qty ? `${ingredient.qty} ${ingredient.unit || ''} ${ingredient.item}`.trim() :
+          ingredient.item || '';
+
+        if (ingredientText) {
+          await client.query(`
+            INSERT INTO recipe_ingredients (recipe_id, ingredient)
+            VALUES ($1, $2)
+          `, [id, ingredientText]);
+        }
+      }
+    }
+
+    // Insert updated instructions
+    if (instructions && instructions.length > 0) {
+      for (let i = 0; i < instructions.length; i++) {
+        const instruction = typeof instructions[i] === 'string' ? instructions[i] : instructions[i].text || '';
+        if (instruction) {
+          await client.query(`
+            INSERT INTO recipe_instructions (recipe_id, step_number, instruction)
+            VALUES ($1, $2, $3)
+          `, [id, i + 1, instruction]);
+        }
+      }
+    }
+
+    // Insert updated tags
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        const tagResult = await client.query(`
+          INSERT INTO tags (tag) VALUES ($1)
+          ON CONFLICT (tag) DO UPDATE SET tag = EXCLUDED.tag
+          RETURNING id
+        `, [tag]);
+
+        const tagId = tagResult.rows[0].id;
+
+        await client.query(`
+          INSERT INTO recipe_tags (recipe_id, tag_id)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `, [id, tagId]);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'Recipe approved and published successfully',
+      recipeId: id,
+      status: 'published'
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error approving recipe:', err);
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     client.release();

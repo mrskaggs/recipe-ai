@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS recipes (
     carbs_g DECIMAL(5,1) DEFAULT 0,
     fat_g DECIMAL(5,1) DEFAULT 0,
     notes TEXT,
+    status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'processing', 'pending_review', 'published')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
