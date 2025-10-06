@@ -36,8 +36,9 @@ export const LoginForm = () => {
       setError('');
       await login(data);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      setError(error.response?.data?.error || 'Login failed. Please try again.');
     }
   };
 

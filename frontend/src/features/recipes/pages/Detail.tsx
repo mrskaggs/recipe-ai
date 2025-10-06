@@ -23,7 +23,7 @@ const RecipeDetail = () => {
   const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions' | 'nutrition'>('ingredients');
   const printRef = useRef<HTMLDivElement>(null);
 
-  const { data: recipe, isLoading, error } = useQuery({
+  const { data: recipe, isLoading, error: _error } = useQuery({
     queryKey: ['recipe', id],
     queryFn: () => getRecipe(id!),
     enabled: !!id,
@@ -104,7 +104,7 @@ const RecipeDetail = () => {
     );
   }
 
-  if (error || !recipe) {
+  if (_error || !recipe) {
     return (
       <div className="space-y-8">
         <Link

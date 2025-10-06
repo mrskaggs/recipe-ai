@@ -55,8 +55,9 @@ export const RecipeManagement = () => {
       setEditingRecipe(null);
       alert('Recipe updated successfully');
     },
-    onError: (error: any) => {
-      alert(error.response?.data?.error || 'Failed to update recipe');
+    onError: (error: unknown) => {
+      const typedError = error as { response?: { data?: { error?: string } } };
+      alert(typedError.response?.data?.error || 'Failed to update recipe');
     },
   });
 
@@ -69,8 +70,9 @@ export const RecipeManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-recipes'] });
       alert('Recipe deleted successfully');
     },
-    onError: (error: any) => {
-      alert(error.response?.data?.error || 'Failed to delete recipe');
+    onError: (error: unknown) => {
+      const typedError = error as { response?: { data?: { error?: string } } };
+      alert(typedError.response?.data?.error || 'Failed to delete recipe');
     },
   });
 
@@ -100,7 +102,7 @@ export const RecipeManagement = () => {
       data: {
         title,
         servings,
-        ingredients: ingredients as any, // API will handle conversion
+        ingredients,
         steps: instructions,
         tags,
         summary: notes,

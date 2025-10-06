@@ -39,14 +39,15 @@ export const RegisterForm = () => {
   const onSubmit = async (data: RegisterFormData) => {
     try {
       setError('');
-      const { confirmPassword, ...userData } = data;
+      const { confirmPassword: _, ...userData } = data;
       await registerUser({
         ...userData,
         username: userData.username || undefined,
       });
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      setError(error.response?.data?.error || 'Registration failed. Please try again.');
     }
   };
 

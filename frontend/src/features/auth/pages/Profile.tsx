@@ -124,8 +124,9 @@ export const Profile = () => {
       });
       setProfileMessage('Profile updated successfully!');
       setTimeout(() => setProfileMessage(''), 3000);
-    } catch (err: any) {
-      setProfileMessage(err.response?.data?.error || 'Failed to update profile');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      setProfileMessage(error.response?.data?.error || 'Failed to update profile');
     }
   };
 
@@ -136,8 +137,9 @@ export const Profile = () => {
       setPasswordMessage('Password changed successfully!');
       passwordForm.reset();
       setTimeout(() => setPasswordMessage(''), 3000);
-    } catch (err: any) {
-      setPasswordMessage(err.response?.data?.error || 'Failed to change password');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      setPasswordMessage(error.response?.data?.error || 'Failed to change password');
     }
   };
 

@@ -30,10 +30,11 @@ const Home = () => {
         description: 'Your recipe has been submitted and will be processed shortly.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('Submission error:', error);
       setIsSubmitting(false);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to submit recipe. Please try again.';
+      const typedError = error as { response?: { data?: { error?: string } }; message?: string };
+      const errorMessage = typedError?.response?.data?.error || typedError?.message || 'Failed to submit recipe. Please try again.';
       addToast({
         type: 'error',
         title: 'Submission Failed',

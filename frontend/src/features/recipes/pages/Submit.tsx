@@ -93,10 +93,11 @@ const Submit = () => {
       // Navigate to user profile
       navigate('/profile');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting recipe:', error);
+      const typedError = error as { response?: { data?: { error?: string } } };
       toast.error('Submission Failed', {
-        description: error.response?.data?.error || 'Failed to submit recipe. Please try again.',
+        description: typedError.response?.data?.error || 'Failed to submit recipe. Please try again.',
       });
     } finally {
       setIsSubmitting(false);
