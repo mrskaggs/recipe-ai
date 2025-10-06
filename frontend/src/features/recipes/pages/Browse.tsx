@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Search, Clock, Users, ChefHat, Tag, Loader2 } from 'lucide-react';
+import { Search, Clock, Users, ChefHat, Tag, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { getRecipes, getTags, searchRecipes } from '../../../lib/api';
 import type { Recipe, Tag as TagType, RecipeSearchParams } from '../../../types';
 
@@ -88,10 +88,51 @@ const Browse = () => {
           <h1 className="text-3xl font-bold tracking-tight">Browse Recipes</h1>
           <p className="mt-2 text-muted-foreground">
             Discover recipes from our collection
+            {(searchQuery || selectedTags.length > 0 || sortBy !== 'createdAt' || sortOrder !== 'desc') && (() => {
+              const activeFiltersCount = [
+                searchQuery ? 1 : 0,
+                selectedTags.length,
+                (sortBy !== 'createdAt' || sortOrder !== 'desc') ? 1 : 0,
+              ].reduce((sum, count) => sum + count, 0);
+              return (
+                <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                  {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} active
+                </span>
+              );
+            })()}
           </p>
         </div>
-        <div className="rounded-lg border bg-card p-8 text-center">
-          <p className="text-red-500">Error loading recipes. Please try again.</p>
+        <div className="rounded-lg border bg-card p-8">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Unable to load recipes</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              We encountered an error while loading the recipes. This might be a temporary network issue or the service might be unavailable.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Page
+              </button>
+              <Link
+                to="/"
+                className="inline-flex items-center px-4 py-2 border border-input rounded-md bg-background hover:bg-muted transition-colors"
+              >
+                Go Home
+              </Link>
+            </div>
+            <details className="mt-6 text-left">
+              <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                Error details
+              </summary>
+              <pre className="mt-2 p-3 bg-muted rounded text-xs text-muted-foreground overflow-x-auto">
+                {error instanceof Error ? error.message : 'Unknown error occurred'}
+              </pre>
+            </details>
+          </div>
         </div>
       </div>
     );
@@ -147,7 +188,7 @@ const Browse = () => {
         )}
 
         {/* Sort Options */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center space-x-4">
             <span className="text-sm font-medium">Sort by:</span>
             <div className="flex space-x-2">
@@ -170,18 +211,56 @@ const Browse = () => {
             </div>
           </div>
 
-          {total > 0 && (
-            <span className="text-sm text-muted-foreground">
-              {total} recipe{total !== 1 ? 's' : ''} found
-            </span>
-          )}
+          <div className="flex items-center space-x-4">
+            {/* Clear filters button */}
+            {(searchQuery || selectedTags.length > 0 || sortBy !== 'createdAt' || sortOrder !== 'desc') && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedTags([]);
+                  setSortBy('createdAt');
+                  setSortOrder('desc');
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1 text-xs text-muted-foreground hover:text-foreground border border-muted hover:bg-muted rounded-md transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
+
+            {total > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {total} recipe{total !== 1 ? 's' : ''} found
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Recipes Grid */}
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="rounded-lg border bg-card overflow-hidden">
+              <div className="p-6 space-y-4">
+                {/* Title skeleton */}
+                <div className="h-6 bg-muted rounded animate-pulse"></div>
+                {/* Meta skeleton */}
+                <div className="flex items-center space-x-4">
+                  <div className="h-4 bg-muted rounded w-20 animate-pulse"></div>
+                  <div className="h-4 bg-muted rounded w-16 animate-pulse"></div>
+                </div>
+                {/* Tags skeleton */}
+                <div className="flex gap-2">
+                  <div className="h-5 bg-muted rounded-full w-16 animate-pulse"></div>
+                  <div className="h-5 bg-muted rounded-full w-20 animate-pulse"></div>
+                  <div className="h-5 bg-muted rounded-full w-14 animate-pulse"></div>
+                </div>
+                {/* Date skeleton */}
+                <div className="h-3 bg-muted rounded w-24 animate-pulse"></div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : recipes.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center">

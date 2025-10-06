@@ -1,17 +1,21 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+import { Suspense, lazy } from 'react';
+import { Loader2 } from 'lucide-react';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import Home from './features/recipes/pages/Home';
-import Browse from './features/recipes/pages/Browse';
-import RecipeDetail from './features/recipes/pages/Detail';
-import Submit from './features/recipes/pages/Submit';
-import { Login } from './features/auth/pages/Login';
-import { Register } from './features/auth/pages/Register';
-import { Profile } from './features/auth/pages/Profile';
-import { AdminDashboard } from './features/admin/pages/AdminDashboard';
+
+// Lazy load pages for code splitting
+const Home = lazy(() => import('./features/recipes/pages/Home'));
+const Browse = lazy(() => import('./features/recipes/pages/Browse'));
+const RecipeDetail = lazy(() => import('./features/recipes/pages/Detail'));
+const Submit = lazy(() => import('./features/recipes/pages/Submit'));
+const Login = lazy(() => import('./features/auth/pages/Login').then(module => ({ default: module.Login })));
+const Register = lazy(() => import('./features/auth/pages/Register').then(module => ({ default: module.Register })));
+const Profile = lazy(() => import('./features/auth/pages/Profile').then(module => ({ default: module.Profile })));
+const AdminDashboard = lazy(() => import('./features/admin/pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 
 // Create a client with enhanced configuration
 const queryClient = new QueryClient({
@@ -52,58 +56,66 @@ function App() {
             <Layout>
               <main id="main-content" role="main">
                 <ErrorBoundary>
-                  <Routes>
-                    {/* Public routes */}
-                    <Route path="/" element={<Home />} />
-                    <Route path="/browse" element={<Browse />} />
-                    <Route path="/recipe/:id" element={<RecipeDetail />} />
+                  <Suspense
+                    fallback={
+                      <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    }
+                  >
+                    <Routes>
+                      {/* Public routes */}
+                      <Route path="/" element={<Home />} />
+                      <Route path="/browse" element={<Browse />} />
+                      <Route path="/recipe/:id" element={<RecipeDetail />} />
 
-                    {/* Auth routes - redirect to home if already authenticated */}
-                    <Route
-                      path="/login"
-                      element={
-                        <ProtectedRoute requireAuth={false}>
-                          <Login />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/register"
-                      element={
-                        <ProtectedRoute requireAuth={false}>
-                          <Register />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Auth routes - redirect to home if already authenticated */}
+                      <Route
+                        path="/login"
+                        element={
+                          <ProtectedRoute requireAuth={false}>
+                            <Login />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/register"
+                        element={
+                          <ProtectedRoute requireAuth={false}>
+                            <Register />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Protected routes - require authentication */}
-                    <Route
-                      path="/submit"
-                      element={
-                        <ProtectedRoute>
-                          <Submit />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <ProtectedRoute>
-                          <Profile />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Protected routes - require authentication */}
+                      <Route
+                        path="/submit"
+                        element={
+                          <ProtectedRoute>
+                            <Submit />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/profile"
+                        element={
+                          <ProtectedRoute>
+                            <Profile />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Admin routes - require admin role */}
-                    <Route
-                      path="/admin"
-                      element={
-                        <ProtectedRoute requiredRole="admin">
-                          <AdminDashboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                  </Routes>
+                      {/* Admin routes - require admin role */}
+                      <Route
+                        path="/admin"
+                        element={
+                          <ProtectedRoute requiredRole="admin">
+                            <AdminDashboard />
+                          </ProtectedRoute>
+                        }
+                      />
+                    </Routes>
+                  </Suspense>
                   <Toaster position="top-right" richColors />
                 </ErrorBoundary>
               </main>

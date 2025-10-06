@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ChefHat, FileText, Search, Eye, Loader2 } from 'lucide-react';
 import { submitRecipe } from '../../../lib/api';
+import { useToasts } from '../../../stores/recipeStore';
 import type { SubmitRecipeRequest } from '../../../types';
 
 const Home = () => {
@@ -10,6 +11,8 @@ const Home = () => {
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { addToast } = useToasts();
 
   const submitMutation = useMutation({
     mutationFn: (data: SubmitRecipeRequest) => submitRecipe(data),
@@ -21,13 +24,21 @@ const Home = () => {
       setTitle('');
       setTags('');
       setIsSubmitting(false);
-      alert('Recipe submitted successfully! It will be processed shortly.');
+      addToast({
+        type: 'success',
+        title: 'Recipe Submitted',
+        description: 'Your recipe has been submitted and will be processed shortly.',
+      });
     },
     onError: (error: any) => {
       console.error('Submission error:', error);
       setIsSubmitting(false);
       const errorMessage = error?.response?.data?.error || error?.message || 'Failed to submit recipe. Please try again.';
-      alert(`Submission failed: ${errorMessage}`);
+      addToast({
+        type: 'error',
+        title: 'Submission Failed',
+        description: errorMessage,
+      });
     },
     onSettled: () => {
       setIsSubmitting(false);
@@ -38,7 +49,11 @@ const Home = () => {
     e.preventDefault();
 
     if (!recipeText.trim()) {
-      alert('Please enter recipe text');
+      addToast({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Please enter recipe text.',
+      });
       return;
     }
 
