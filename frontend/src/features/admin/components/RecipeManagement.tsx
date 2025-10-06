@@ -88,7 +88,7 @@ export const RecipeManagement = () => {
     const formData = new FormData(e.target as HTMLFormElement);
     const title = formData.get('title') as string;
     const servings = parseInt(formData.get('servings') as string) || 1;
-    const ingredients = (formData.get('ingredients') as string).split('\n').filter(i => i.trim());
+    const ingredients = (formData.get('ingredients') as string).split('\n').filter(i => i.trim()).map(item => ({ item: item.trim() }));
     const instructions = (formData.get('instructions') as string).split('\n').filter(i => i.trim());
     const tags = (formData.get('tags') as string).split(',').map(t => t.trim()).filter(t => t);
     const notes = formData.get('notes') as string;
@@ -387,7 +387,7 @@ export const RecipeManagement = () => {
                   name="ingredients"
                   rows={6}
                   defaultValue={editingRecipe?.ingredients?.map(ing =>
-                    typeof ing === 'string' ? ing : ing.item || ing
+                    typeof ing === 'string' ? ing : ing.item || JSON.stringify(ing)
                   ).join('\n') || ''}
                   placeholder="1 cup flour&#10;2 eggs&#10;1/2 cup milk"
                 />
