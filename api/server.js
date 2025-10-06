@@ -24,6 +24,28 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Initialize database and test connection
 async function initializeDatabase() {
   try {
+    // First, try to create the database if it doesn't exist
+    const tempPool = new (require('pg').Pool)({
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'password123',
+      database: 'postgres' // Connect to default postgres database first
+    });
+
+    try {
+      await tempPool.query(`CREATE DATABASE ${process.env.DB_NAME || 'recipes'} WITH OWNER = ${process.env.DB_USER || 'postgres'}`);
+      console.log(`Database '${process.env.DB_NAME || 'recipes'}' created successfully`);
+    } catch (createErr) {
+      // Database might already exist, which is fine
+      if (!createErr.message.includes('already exists')) {
+        console.log('Database already exists, continuing...');
+      }
+    } finally {
+      await tempPool.end();
+    }
+
+    // Now connect to the actual database
     const client = await pool.connect();
     try {
       console.log('Connected to PostgreSQL database');
