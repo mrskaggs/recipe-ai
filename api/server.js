@@ -24,111 +24,37 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Initialize database and test connection
 async function initializeDatabase() {
   try {
-    // First, try to create the database if it doesn't exist
-    const tempPool = new (require('pg').Pool)({
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5432,
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'password123',
-      database: 'postgres' // Connect to default postgres database first
-    });
-
-    try {
-      await tempPool.query(`CREATE DATABASE ${process.env.DB_NAME || 'recipes'} WITH OWNER = ${process.env.DB_USER || 'postgres'}`);
-      console.log(`Database '${process.env.DB_NAME || 'recipes'}' created successfully`);
-    } catch (createErr) {
-      // Database might already exist, which is fine
-      if (!createErr.message.includes('already exists')) {
-        console.log('Database already exists, continuing...');
-      }
-    } finally {
-      await tempPool.end();
-    }
-
-    // Now connect to the actual database
+    // Test database connection
     const client = await pool.connect();
     try {
       console.log('Connected to PostgreSQL database');
 
-      // Create tables if they don't exist
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          username VARCHAR(100) UNIQUE,
-          password_hash VARCHAR(255) NOT NULL,
-          role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('admin', 'user')),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+      // Check if tables exist (they should be created by init.sql)
+      const result = await client.query(`
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name IN ('users', 'recipes', 'recipe_ingredients', 'recipe_instructions', 'tags', 'recipe_tags')
       `);
 
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS recipes (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          title VARCHAR(255) NOT NULL,
-          servings INTEGER DEFAULT 1,
-          calories INTEGER DEFAULT 0,
-          protein_g DECIMAL(5,1) DEFAULT 0,
-          carbs_g DECIMAL(5,1) DEFAULT 0,
-          fat_g DECIMAL(5,1) DEFAULT 0,
-          notes TEXT,
-          status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'processing', 'pending_review', 'published')),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+      const existingTables = result.rows.map(row => row.table_name);
+      const requiredTables = ['users', 'recipes', 'recipe_ingredients', 'recipe_instructions', 'tags', 'recipe_tags'];
 
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS recipe_ingredients (
-          id SERIAL PRIMARY KEY,
-          recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
-          ingredient TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+      console.log('Existing tables:', existingTables);
 
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS recipe_instructions (
-          id SERIAL PRIMARY KEY,
-          recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
-          step_number INTEGER NOT NULL,
-          instruction TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS tags (
-          id SERIAL PRIMARY KEY,
-          tag VARCHAR(50) UNIQUE NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS recipe_tags (
-          recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
-          tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
-          PRIMARY KEY (recipe_id, tag_id),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      // Create indexes
-      await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_title ON recipes(title)`);
-      await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at)`);
-      await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id)`);
-
-      console.log('Database tables initialized successfully');
+      if (existingTables.length === requiredTables.length) {
+        console.log('All database tables exist');
+      } else {
+        console.log('Some tables may be missing. Tables found:', existingTables);
+        console.log('Required tables:', requiredTables);
+      }
 
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error('Error initializing database:', err);
-    console.log('Running in mock mode - database not available');
+    console.error('Error connecting to database:', err);
+    console.log('Database not available - application will run in limited mode');
   }
 }
 
