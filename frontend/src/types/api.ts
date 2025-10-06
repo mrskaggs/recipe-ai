@@ -44,7 +44,7 @@ export interface UserRef {
   avatarUrl?: string;
 }
 
-export type RecipeStatus = 'draft' | 'published' | 'archived';
+export type RecipeStatus = 'draft' | 'processing' | 'pending_review' | 'published';
 
 export interface JobStatus {
   status: 'pending' | 'processing' | 'completed' | 'error';
@@ -71,7 +71,7 @@ export interface RecipeSearchParams {
 }
 
 export interface SubmitRecipeRequest {
-  title: string;
+  title?: string;
   recipeText: string;
   tags?: string[];
   servings?: number;

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Recipe } from '../types/api';
 
 // Print options interface
 export interface PrintOptions {
@@ -35,6 +36,19 @@ export interface ModalState {
   isOpen: boolean;
   type?: string;
   data?: any;
+}
+
+// User recipes interface
+export interface UserRecipesState {
+  recipes: Recipe[];
+  loading: boolean;
+  error: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 // UI state interface
@@ -87,6 +101,15 @@ interface RecipeStore {
   searchHistory: string[];
   addToSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
+
+  // User recipes
+  userRecipes: UserRecipesState;
+  setUserRecipesLoading: (loading: boolean) => void;
+  setUserRecipesError: (error: string | null) => void;
+  setUserRecipes: (recipes: Recipe[], pagination: UserRecipesState['pagination']) => void;
+  addUserRecipe: (recipe: Recipe) => void;
+  updateUserRecipe: (recipeId: string, updates: Partial<Recipe>) => void;
+  removeUserRecipe: (recipeId: string) => void;
 }
 
 // Default print options
@@ -105,6 +128,19 @@ const defaultUiState: UiState = {
   sidebarOpen: false,
   activeTab: 'ingredients',
   loadingStates: {},
+};
+
+// Default user recipes state
+const defaultUserRecipesState: UserRecipesState = {
+  recipes: [],
+  loading: false,
+  error: null,
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+  },
 };
 
 export const useRecipeStore = create<RecipeStore>()(
@@ -256,6 +292,63 @@ export const useRecipeStore = create<RecipeStore>()(
         set(() => ({
           searchHistory: [],
         })),
+
+      // User recipes
+      userRecipes: defaultUserRecipesState,
+      setUserRecipesLoading: (loading) =>
+        set((state) => ({
+          userRecipes: { ...state.userRecipes, loading },
+        })),
+
+      setUserRecipesError: (error) =>
+        set((state) => ({
+          userRecipes: { ...state.userRecipes, error, loading: false },
+        })),
+
+      setUserRecipes: (recipes, pagination) =>
+        set((state) => ({
+          userRecipes: {
+            ...state.userRecipes,
+            recipes,
+            pagination,
+            loading: false,
+            error: null,
+          },
+        })),
+
+      addUserRecipe: (recipe) =>
+        set((state) => ({
+          userRecipes: {
+            ...state.userRecipes,
+            recipes: [recipe, ...state.userRecipes.recipes],
+            pagination: {
+              ...state.userRecipes.pagination,
+              total: state.userRecipes.pagination.total + 1,
+            },
+          },
+        })),
+
+      updateUserRecipe: (recipeId, updates) =>
+        set((state) => ({
+          userRecipes: {
+            ...state.userRecipes,
+            recipes: state.userRecipes.recipes.map((recipe) =>
+              recipe.id === recipeId ? { ...recipe, ...updates } : recipe
+            ),
+          },
+        })),
+
+      removeUserRecipe: (recipeId) =>
+        set((state) => ({
+          userRecipes: {
+            ...state.userRecipes,
+            recipes: state.userRecipes.recipes.filter((recipe) => recipe.id !== recipeId),
+            pagination: {
+              ...state.userRecipes.pagination,
+              total: Math.max(0, state.userRecipes.pagination.total - 1),
+            },
+          },
+        })),
     }),
     {
       name: 'recipe-store',
@@ -298,4 +391,25 @@ export const useToasts = () => {
 export const useModals = () => {
   const { modals, openModal, closeModal } = useRecipeStore();
   return { modals, openModal, closeModal };
+};
+
+export const useUserRecipes = () => {
+  const {
+    userRecipes,
+    setUserRecipesLoading,
+    setUserRecipesError,
+    setUserRecipes,
+    addUserRecipe,
+    updateUserRecipe,
+    removeUserRecipe,
+  } = useRecipeStore();
+  return {
+    userRecipes,
+    setUserRecipesLoading,
+    setUserRecipesError,
+    setUserRecipes,
+    addUserRecipe,
+    updateUserRecipe,
+    removeUserRecipe,
+  };
 };

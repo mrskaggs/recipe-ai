@@ -37,6 +37,35 @@ export const submitRecipe = async (recipeData: SubmitRecipeRequest): Promise<Sub
   return response.data;
 };
 
+// Create recipe directly (authenticated users)
+export const createRecipe = async (recipeData: Partial<Recipe>): Promise<{ recipeId: string }> => {
+  const response = await http.post('/api/recipes/create', recipeData);
+  return response.data;
+};
+
+// Update recipe (recipe owners only)
+export const updateRecipe = async (id: string, recipeData: Partial<Recipe>): Promise<{ recipeId: string }> => {
+  const response = await http.put(`/api/recipes/${id}`, recipeData);
+  return response.data;
+};
+
+// Delete recipe (recipe owners only)
+export const deleteRecipe = async (id: string): Promise<void> => {
+  await http.delete(`/api/recipes/${id}`);
+};
+
+// Approve/edit recipe after AI processing
+export const approveRecipe = async (id: string, recipeData: Partial<Recipe>): Promise<{ recipeId: string }> => {
+  const response = await http.put(`/api/recipes/${id}/approve`, recipeData);
+  return response.data;
+};
+
+// Get user's recipes
+export const getUserRecipes = async (params?: { page?: number; limit?: number }): Promise<RecipesResponse> => {
+  const response = await http.get('/api/user/recipes', { params });
+  return response.data;
+};
+
 // Check job status (if polling is needed)
 export const getJobStatus = async (jobId: string): Promise<JobStatus> => {
   const response = await http.get(`/api/jobs/${jobId}`);
