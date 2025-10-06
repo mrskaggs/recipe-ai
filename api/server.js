@@ -44,6 +44,24 @@ async function initializeDatabase() {
 
       if (existingTables.length === requiredTables.length) {
         console.log('All database tables exist');
+
+        // Check if recipes table has required columns
+        const columnResult = await client.query(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = 'recipes'
+          AND column_name IN ('user_id', 'status', 'updated_at')
+        `);
+
+        const existingColumns = columnResult.rows.map(row => row.column_name);
+        const requiredColumns = ['user_id', 'status', 'updated_at'];
+
+        if (existingColumns.length === requiredColumns.length) {
+          console.log('All required columns exist in recipes table');
+        } else {
+          console.error('Missing columns in recipes table. Found:', existingColumns, 'Required:', requiredColumns);
+          console.error('Please run the migration script: api/database/migration.sql');
+        }
       } else {
         console.log('Some tables may be missing. Tables found:', existingTables);
         console.log('Required tables:', requiredTables);
