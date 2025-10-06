@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Search, Clock, Users, ChefHat, Tag, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Clock, Users, ChefHat, Tag, AlertCircle, RefreshCw } from 'lucide-react';
 import { getRecipes, getTags, searchRecipes } from '../../../lib/api';
 import type { Recipe, Tag as TagType, RecipeSearchParams } from '../../../types';
 
