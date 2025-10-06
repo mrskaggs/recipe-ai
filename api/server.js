@@ -21,6 +21,74 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Run database migrations if needed
+async function runMigrations(client) {
+  console.log('Checking for required database migrations...');
+
+  // Check if recipes table has required columns
+  const columnResult = await client.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_name = 'recipes'
+    AND column_name IN ('user_id', 'status', 'updated_at')
+  `);
+
+  const existingColumns = columnResult.rows.map(row => row.column_name);
+  const requiredColumns = ['user_id', 'status', 'updated_at'];
+
+  const missingColumns = requiredColumns.filter(col => !existingColumns.includes(col));
+
+  if (missingColumns.length > 0) {
+    console.log('Missing columns detected:', missingColumns);
+    console.log('Running database migrations...');
+
+    // Run migrations for missing columns
+    for (const column of missingColumns) {
+      switch (column) {
+        case 'user_id':
+          console.log('Adding user_id column to recipes table...');
+          await client.query(`
+            ALTER TABLE recipes ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+          `);
+          break;
+        case 'status':
+          console.log('Adding status column to recipes table...');
+          await client.query(`
+            ALTER TABLE recipes ADD COLUMN status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'processing', 'pending_review', 'published'))
+          `);
+          break;
+        case 'updated_at':
+          console.log('Adding updated_at column to recipes table...');
+          await client.query(`
+            ALTER TABLE recipes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          `);
+          break;
+      }
+    }
+
+    // Create indexes if they don't exist
+    console.log('Ensuring indexes exist...');
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_title ON recipes(title)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe_id ON recipe_ingredients(recipe_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_instructions_recipe_id ON recipe_instructions(recipe_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_instructions_step ON recipe_instructions(recipe_id, step_number)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_recipe_id ON recipe_tags(recipe_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_tag_id ON recipe_tags(tag_id)`);
+
+    // Update existing recipes with default values
+    console.log('Updating existing recipes with default values...');
+    await client.query(`UPDATE recipes SET status = 'published' WHERE status IS NULL`);
+    await client.query(`UPDATE recipes SET updated_at = created_at WHERE updated_at IS NULL`);
+
+    console.log('Database migrations completed successfully!');
+  } else {
+    console.log('Database schema is up to date');
+  }
+}
+
 // Initialize database and test connection
 async function initializeDatabase() {
   try {
@@ -45,26 +113,13 @@ async function initializeDatabase() {
       if (existingTables.length === requiredTables.length) {
         console.log('All database tables exist');
 
-        // Check if recipes table has required columns
-        const columnResult = await client.query(`
-          SELECT column_name
-          FROM information_schema.columns
-          WHERE table_name = 'recipes'
-          AND column_name IN ('user_id', 'status', 'updated_at')
-        `);
+        // Run migrations if needed
+        await runMigrations(client);
 
-        const existingColumns = columnResult.rows.map(row => row.column_name);
-        const requiredColumns = ['user_id', 'status', 'updated_at'];
-
-        if (existingColumns.length === requiredColumns.length) {
-          console.log('All required columns exist in recipes table');
-        } else {
-          console.error('Missing columns in recipes table. Found:', existingColumns, 'Required:', requiredColumns);
-          console.error('Please run the migration script: api/database/migration.sql');
-        }
       } else {
         console.log('Some tables may be missing. Tables found:', existingTables);
         console.log('Required tables:', requiredTables);
+        console.log('Database may not be properly initialized. Please check init.sql');
       }
 
     } finally {
