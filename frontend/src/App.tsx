@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -103,6 +104,7 @@ function App() {
                       }
                     />
                   </Routes>
+                  <Toaster position="top-right" richColors />
                 </ErrorBoundary>
               </main>
             </Layout>

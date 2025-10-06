@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toast } from 'sonner';
 import type { Recipe } from '../types/api';
 
 // Print options interface
@@ -254,12 +255,25 @@ export const useRecipeStore = create<RecipeStore>()(
 
       // Favorites
       favoriteRecipes: [],
-      toggleFavorite: (recipeId) =>
+      toggleFavorite: (recipeId) => {
+        const isCurrentlyFavorite = get().favoriteRecipes.includes(recipeId);
+
         set((state) => ({
-          favoriteRecipes: state.favoriteRecipes.includes(recipeId)
+          favoriteRecipes: isCurrentlyFavorite
             ? state.favoriteRecipes.filter((id) => id !== recipeId)
             : [...state.favoriteRecipes, recipeId],
-        })),
+        }));
+
+        if (isCurrentlyFavorite) {
+          toast.success('Removed from Favorites', {
+            description: 'Recipe has been removed from your favorites.',
+          });
+        } else {
+          toast.success('Added to Favorites', {
+            description: 'Recipe has been added to your favorites.',
+          });
+        }
+      },
 
       isFavorite: (recipeId) => {
         return get().favoriteRecipes.includes(recipeId);

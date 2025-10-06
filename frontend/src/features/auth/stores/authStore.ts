@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { toast } from 'sonner';
 import type { AuthStore, LoginRequest, RegisterRequest, User } from '../../../types/auth';
 import { authApi, tokenStorage, initializeAuth } from '../../../lib/auth';
 
@@ -43,8 +44,15 @@ export const useAuthStore = create<AuthStore>()(
             isAuthenticated: true,
             isLoading: false,
           });
+
+          toast.success('Welcome back!', {
+            description: 'You have been successfully logged in.',
+          });
         } catch (error) {
           set({ isLoading: false });
+          toast.error('Login Failed', {
+            description: error instanceof Error ? error.message : 'Please check your credentials and try again.',
+          });
           throw error;
         }
       },
@@ -67,8 +75,15 @@ export const useAuthStore = create<AuthStore>()(
             isAuthenticated: true,
             isLoading: false,
           });
+
+          toast.success('Account Created!', {
+            description: 'Welcome to Recipe AI! Your account has been created successfully.',
+          });
         } catch (error) {
           set({ isLoading: false });
+          toast.error('Registration Failed', {
+            description: error instanceof Error ? error.message : 'Please check your information and try again.',
+          });
           throw error;
         }
       },
@@ -82,6 +97,10 @@ export const useAuthStore = create<AuthStore>()(
           refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
+        });
+
+        toast.success('Logged Out', {
+          description: 'You have been successfully logged out.',
         });
       },
 
@@ -127,9 +146,16 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
           });
 
+          toast.success('Profile Updated', {
+            description: 'Your profile information has been successfully updated.',
+          });
+
           return updatedUser;
         } catch (error) {
           set({ isLoading: false });
+          toast.error('Profile Update Failed', {
+            description: error instanceof Error ? error.message : 'Please try again.',
+          });
           throw error;
         }
       },
@@ -140,8 +166,15 @@ export const useAuthStore = create<AuthStore>()(
         try {
           await authApi.changePassword(currentPassword, newPassword);
           set({ isLoading: false });
+
+          toast.success('Password Changed', {
+            description: 'Your password has been successfully updated.',
+          });
         } catch (error) {
           set({ isLoading: false });
+          toast.error('Password Change Failed', {
+            description: error instanceof Error ? error.message : 'Please check your current password and try again.',
+          });
           throw error;
         }
       },

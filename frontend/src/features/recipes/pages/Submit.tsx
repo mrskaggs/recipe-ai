@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
@@ -8,12 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui
 import { Badge } from '../../../components/ui/badge';
 import { Loader2, Wand2, Plus, X, FileText, ChefHat } from 'lucide-react';
 import { submitRecipe } from '../../../lib/api';
-import { useToasts } from '../../../stores/recipeStore';
 import { useAuth } from '../../auth/hooks/useAuth';
 
 const Submit = () => {
   const navigate = useNavigate();
-  const { addToast } = useToasts();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -64,9 +63,7 @@ const Submit = () => {
     e.preventDefault();
 
     if (!user) {
-      addToast({
-        type: 'error',
-        title: 'Authentication Required',
+      toast.error('Authentication Required', {
         description: 'Please log in to submit a recipe.',
       });
       return;
@@ -84,9 +81,7 @@ const Submit = () => {
         tags: tags.length > 0 ? tags : undefined,
       });
 
-      addToast({
-        type: 'success',
-        title: 'Recipe Submitted!',
+      toast.success('Recipe Submitted!', {
         description: 'Your recipe is being processed by AI. You\'ll be notified when it\'s ready for review.',
       });
 
@@ -100,9 +95,7 @@ const Submit = () => {
 
     } catch (error: any) {
       console.error('Error submitting recipe:', error);
-      addToast({
-        type: 'error',
-        title: 'Submission Failed',
+      toast.error('Submission Failed', {
         description: error.response?.data?.error || 'Failed to submit recipe. Please try again.',
       });
     } finally {
@@ -264,7 +257,7 @@ Makes 24 cookies"
                   </p>
                 </div>
 
-                <Button type="submit" disabled={isSubmitting} className="w-full">
+                <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
