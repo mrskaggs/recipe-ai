@@ -12,8 +12,7 @@ import { Separator } from '../../../components/ui/separator';
 import { Badge } from '../../../components/ui/badge';
 import { Loader2, User, Shield, ChefHat, Clock, CheckCircle, AlertCircle, Edit } from 'lucide-react';
 import { useUserRecipes } from '../../../stores/recipeStore';
-import { getUserRecipes, approveRecipe } from '../../../lib/api';
-import type { Recipe } from '../../../types/api';
+import { getUserRecipes } from '../../../lib/api';
 
 // Profile update schema
 const profileSchema = z.object({
