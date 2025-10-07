@@ -5,9 +5,8 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Badge } from '../../../components/ui/badge';
-import { Loader2, Wand2, Plus, X, FileText, ChefHat } from 'lucide-react';
+import { Loader2, Wand2, Plus, X } from 'lucide-react';
 import { submitRecipe } from '../../../lib/api';
 import { useAuth } from '../../auth/hooks/useAuth';
 
@@ -140,56 +139,43 @@ const Submit = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="ai" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="ai" className="flex items-center gap-2">
-            <Wand2 className="h-4 w-4" />
-            AI-Powered
-          </TabsTrigger>
-          <TabsTrigger value="manual" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Manual Entry
-          </TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wand2 className="h-5 w-5" />
+            AI Recipe Processing
+          </CardTitle>
+          <CardDescription>
+            Paste your recipe text and let AI extract ingredients, instructions, and nutritional information automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label htmlFor="title" className="text-sm font-medium">
+                Recipe Title (Optional)
+              </label>
+              <Input
+                id="title"
+                placeholder="e.g., Grandma's Chocolate Chip Cookies"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              />
+              {errors.title && (
+                <p className="text-sm text-destructive">{errors.title}</p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Leave blank and AI will extract it from your recipe text
+              </p>
+            </div>
 
-        <TabsContent value="ai" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wand2 className="h-5 w-5" />
-                AI Recipe Processing
-              </CardTitle>
-              <CardDescription>
-                Paste your recipe text and let AI extract ingredients, instructions, and nutritional information automatically.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label htmlFor="title" className="text-sm font-medium">
-                    Recipe Title (Optional)
-                  </label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., Grandma's Chocolate Chip Cookies"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  />
-                  {errors.title && (
-                    <p className="text-sm text-destructive">{errors.title}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    Leave blank and AI will extract it from your recipe text
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="recipeText" className="text-sm font-medium">
-                    Recipe Text *
-                  </label>
-                  <Textarea
-                    id="recipeText"
-                    placeholder="Paste your complete recipe here. Include ingredients, instructions, servings, etc.
+            <div className="space-y-2">
+              <label htmlFor="recipeText" className="text-sm font-medium">
+                Recipe Text *
+              </label>
+              <Textarea
+                id="recipeText"
+                placeholder="Paste your complete recipe here. Include ingredients, instructions, servings, etc.
 
 Example:
 Chocolate Chip Cookies
@@ -210,95 +196,70 @@ Instructions:
 6. Bake for 9-11 minutes
 
 Makes 24 cookies"
-                    className="min-h-[300px] font-mono text-sm"
-                    value={formData.recipeText}
-                    onChange={(e) => setFormData(prev => ({ ...prev, recipeText: e.target.value }))}
-                  />
-                  {errors.recipeText && (
-                    <p className="text-sm text-destructive">{errors.recipeText}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    Include ingredients, instructions, servings, and any other details. The more information you provide, the better the AI processing.
-                  </p>
-                </div>
+                className="min-h-[300px] font-mono text-sm"
+                value={formData.recipeText}
+                onChange={(e) => setFormData(prev => ({ ...prev, recipeText: e.target.value }))}
+              />
+              {errors.recipeText && (
+                <p className="text-sm text-destructive">{errors.recipeText}</p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Include ingredients, instructions, servings, and any other details. The more information you provide, the better the AI processing.
+              </p>
+            </div>
 
-                {/* Tags Section */}
-                <div className="space-y-3">
-                  <label className="text-sm font-medium">Tags (Optional)</label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add a tag (e.g., dessert, quick, vegetarian)"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      className="flex-1"
-                    />
-                    <Button type="button" variant="outline" onClick={addTag}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="flex items-center gap-1">
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => removeTag(tag)}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    Add up to 10 tags to help others find your recipe
-                  </p>
-                </div>
-
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing Recipe...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Submit for AI Processing
-                    </>
-                  )}
+            {/* Tags Section */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Tags (Optional)</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add a tag (e.g., dessert, quick, vegetarian)"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" onClick={addTag}>
+                  <Plus className="h-4 w-4" />
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="manual" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ChefHat className="h-5 w-5" />
-                Manual Recipe Entry
-              </CardTitle>
-              <CardDescription>
-                Enter your recipe details manually. This option gives you full control over the final result.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border-2 border-dashed p-8 text-center">
-                <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold">Manual Entry Coming Soon</h3>
-                <p className="mt-2 text-muted-foreground">
-                  We're working on a comprehensive manual recipe entry form. For now, please use the AI-powered option above.
-                </p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Add up to 10 tags to help others find your recipe
+              </p>
+            </div>
+
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing Recipe...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Submit for AI Processing
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };

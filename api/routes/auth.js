@@ -136,23 +136,28 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    // Generate new access token
+    // Generate new access token with extended lifetime
     const accessToken = generateAccessToken(user);
 
+    // Also generate a new refresh token (refresh token rotation for security)
+    const newRefreshToken = generateRefreshToken(user);
+
     res.json({
-      message: 'Token refreshed successfully',
-      token: accessToken
+      message: 'Tokens refreshed successfully',
+      token: accessToken,
+      refreshToken: newRefreshToken,
+      user: user.toJSON()
     });
 
   } catch (error) {
     console.error('Token refresh error:', error);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
-        error: 'Refresh token expired'
+        error: 'Refresh token expired. Please log in again.'
       });
     } else if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
-        error: 'Invalid refresh token'
+        error: 'Invalid refresh token. Please log in again.'
       });
     } else {
       return res.status(500).json({

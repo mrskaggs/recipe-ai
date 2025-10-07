@@ -45,7 +45,7 @@ const generateAccessToken = (user) => {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: process.env.JWT_EXPIRE || '1h'
+      expiresIn: process.env.JWT_EXPIRE || '24h'
     }
   );
 };
