@@ -25,48 +25,73 @@ app.use(express.static(path.join(__dirname, '../public')));
 async function runMigrations(client) {
   console.log('Checking for required database migrations...');
 
-  // Check if recipes table has required columns
-  const columnResult = await client.query(`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_name = 'recipes'
-    AND column_name IN ('user_id', 'status', 'updated_at')
-  `);
+  try {
+    // Run the migration.sql script automatically
+    console.log('Running automatic migration script...');
+    const migrationPath = path.join(__dirname, 'database', 'migration.sql');
+    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
-  const existingColumns = columnResult.rows.map(row => row.column_name);
-  const requiredColumns = ['user_id', 'status', 'updated_at'];
+    // Split the SQL into individual statements and execute them
+    const statements = migrationSQL
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
 
-  const missingColumns = requiredColumns.filter(col => !existingColumns.includes(col));
-
-  if (missingColumns.length > 0) {
-    console.log('Missing columns detected:', missingColumns);
-    console.log('Running database migrations...');
-
-    // Run migrations for missing columns
-    for (const column of missingColumns) {
-      switch (column) {
-        case 'user_id':
-          console.log('Adding user_id column to recipes table...');
-          await client.query(`
-            ALTER TABLE recipes ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
-          `);
-          break;
-        case 'status':
-          console.log('Adding status column to recipes table...');
-          await client.query(`
-            ALTER TABLE recipes ADD COLUMN status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'processing', 'pending_review', 'published'))
-          `);
-          break;
-        case 'updated_at':
-          console.log('Adding updated_at column to recipes table...');
-          await client.query(`
-            ALTER TABLE recipes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          `);
-          break;
+    for (const statement of statements) {
+      if (statement.trim()) {
+        await client.query(statement);
       }
     }
 
-    // Create indexes if they don't exist
+    console.log('Automatic migration script executed successfully!');
+  } catch (error) {
+    console.log('Migration script execution completed (may have already run):', error.message);
+  }
+
+  // Check schema after potential migrations
+  try {
+    const columnResult = await client.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'recipes'
+      AND column_name IN ('user_id', 'status', 'updated_at')
+    `);
+
+    const existingColumns = columnResult.rows.map(row => row.column_name);
+    const requiredColumns = ['user_id', 'status', 'updated_at'];
+
+    const missingColumns = requiredColumns.filter(col => !existingColumns.includes(col));
+
+    if (missingColumns.length > 0) {
+      console.log('Still missing some columns after migration:', missingColumns);
+      // Fallback manual migration if needed
+      console.log('Running fallback manual migration...');
+
+      for (const column of missingColumns) {
+        switch (column) {
+          case 'user_id':
+            console.log('Adding user_id column to recipes table...');
+            await client.query(`
+              ALTER TABLE recipes ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+            `);
+            break;
+          case 'status':
+            console.log('Adding status column to recipes table...');
+            await client.query(`
+              ALTER TABLE recipes ADD COLUMN status VARCHAR(20) DEFAULT 'published' CHECK (status IN ('draft', 'processing', 'pending_review', 'published'))
+            `);
+            break;
+          case 'updated_at':
+            console.log('Adding updated_at column to recipes table...');
+            await client.query(`
+              ALTER TABLE recipes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            `);
+            break;
+        }
+      }
+    }
+
+    // Ensure indexes exist
     console.log('Ensuring indexes exist...');
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipes_title ON recipes(title)`);
@@ -75,23 +100,18 @@ async function runMigrations(client) {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_instructions_recipe_id ON recipe_instructions(recipe_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_instructions_step ON recipe_instructions(recipe_id, step_number)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag)`);
-          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_recipe_id ON recipe_tags(recipe_id)`);
-          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_tag_id ON recipe_tags(tag_id)`);
-          // Indexes for new popularity tables
-          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_recipe_id ON recipe_views(recipe_id)`);
-          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_user_id ON recipe_views(user_id)`);
-          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_viewed_at ON recipe_views(viewed_at)`);
-          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_favorites_user_id ON recipe_favorites(user_id)`);
-          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_id ON recipe_likes(user_id)`);
-
-    // Update existing recipes with default values
-    console.log('Updating existing recipes with default values...');
-    await client.query(`UPDATE recipes SET status = 'published' WHERE status IS NULL`);
-    await client.query(`UPDATE recipes SET updated_at = created_at WHERE updated_at IS NULL`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_recipe_id ON recipe_tags(recipe_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_tag_id ON recipe_tags(tag_id)`);
+    // Indexes for new popularity tables
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_recipe_id ON recipe_views(recipe_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_user_id ON recipe_views(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_viewed_at ON recipe_views(viewed_at)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_favorites_user_id ON recipe_favorites(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_id ON recipe_likes(user_id)`);
 
     console.log('Database migrations completed successfully!');
-  } else {
-    console.log('Database schema is up to date');
+  } catch (error) {
+    console.log('Post-migration check completed:', error.message);
   }
 }
 

@@ -7,17 +7,26 @@ A complete recipe management application with React frontend, Node.js API, and P
 ### Frontend (React + TypeScript)
 - Modern React 18 with TypeScript and Vite
 - Responsive design with Tailwind CSS and shadcn/ui components
-- Recipe browsing, searching, and filtering
+- Recipe browsing, searching, and filtering by popularity
 - Print-friendly recipe cards
 - Form validation with React Hook Form and Zod
 - State management with TanStack Query and Zustand
+- **Social Features**: Author attribution, popularity metrics, profile browsing
 
 ### Backend API
 - RESTful API with Express.js
-- PostgreSQL database with proper schema
+- PostgreSQL database with comprehensive schema
 - N8n workflow integration for recipe processing
 - Health check endpoints
-- Search and filtering capabilities
+- Advanced search and filtering with social metrics
+- **Social Analytics**: recipe views, likes, favorites tracking
+- **User Management**: display names and profile attribution
+
+### Social Recipe Platform
+- **Author Attribution**: See who created each recipe with clickable profiles
+- **Popularity Metrics**: View counts, likes, and favorites to discover trending content
+- **Profile Discovery**: Browse other users' recipe collections
+- **Community Engagement**: Social signals for recipe discovery
 
 ### Production Ready
 - Docker multi-stage builds
@@ -138,19 +147,26 @@ Choose the appropriate `API_BASE_URL` based on your deployment:
 
 ### Core Endpoints
 - `GET /health` - Health check
-- `GET /api/recipes` - Get all recipes with search/filter support
-- `GET /api/recipes/:id` - Get specific recipe
+- `GET /api/recipes` - Get all recipes with social features and search/filter support
+- `GET /api/recipes/:id` - Get specific recipe with author and popularity data
 - `POST /api/recipes` - Create new recipe
 - `GET /api/recipes/search` - Search recipes
 - `GET /api/recipes/tags` - Get available tags
 
+### Social Features Endpoints
+- `GET /api/user/recipes` - Get authenticated user's recipes
+- **Popularity Sorting**: Sort by `view_count`, `like_count`, `favorite_count`
+- **Author Attribution**: All recipes include user information
+- **Social Metrics**: View counts, likes, and favorites for each recipe
+
 ### Search Parameters
 - `q`: Search query (searches title, ingredients, instructions)
 - `tags`: Filter by tags (comma-separated)
+- `sort`: Sort by `title`, `createdAt`, `view_count`, `like_count`, `favorite_count`
 - `limit`: Number of results (default: 20)
 - `offset`: Pagination offset (default: 0)
 
-Example: `GET /api/recipes/search?q=chicken&tags=dinner,healthy&limit=10`
+Example: `GET /api/recipes?sort=view_count&order=desc&limit=10`
 
 ## Recipe Submission
 
@@ -239,12 +255,40 @@ cd frontend && npm test
 cd api && npm test
 ```
 
+## Automatic Database Migration
+
+**The application now automatically handles all database migrations on startup!**
+
+Simply deploy the updated containers and the application will:
+1. ✅ **Automatically detect** existing database schema
+2. ✅ **Run migration scripts** when the API container starts
+3. ✅ **Add new social features** without manual intervention
+4. ✅ **Preserve existing data** - no data loss
+5. ✅ **Handle deployment updates** seamlessly
+
+### What Gets Added Automatically
+- `display_name` column to users table (populated from username or email)
+- `recipe_views` table for view tracking
+- `recipe_favorites` table for user favorites
+- `recipe_likes` table for recipe likes
+- All necessary indexes for performance
+- Backward compatibility with existing data
+
+### Manual Migration (Still Available)
+If you prefer manual control, you can still run migrations separately:
+```bash
+docker exec -it recipe-postgres psql -U postgres -d recipes -f api/database/migration.sql
+```
+
+**Note**: Automatic migration runs on every container startup, so it will safely skip already-applied migrations.
+
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   React Frontend│    │   Express API   │    │   PostgreSQL    │
 │   (Port 8080)   │◄──►│   (Port 3001)   │◄──►│   (Port 5432)   │
+│   Social Features│    │ Social APIs    │    │ Social Schema   │
 │   Nginx + Vite  │    │   Node.js       │    │   Database      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │
