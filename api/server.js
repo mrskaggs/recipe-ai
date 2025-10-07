@@ -31,17 +31,9 @@ async function runMigrations(client) {
     const migrationPath = path.join(__dirname, 'database', 'migration.sql');
     const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
-    // Split the SQL into individual statements and execute them
-    const statements = migrationSQL
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-
-    for (const statement of statements) {
-      if (statement.trim()) {
-        await client.query(statement);
-      }
-    }
+    // Execute the entire migration script as one query
+    // The script has IF NOT EXISTS guards, so it won't break if already run
+    await client.query(migrationSQL);
 
     console.log('Automatic migration script executed successfully!');
   } catch (error) {
