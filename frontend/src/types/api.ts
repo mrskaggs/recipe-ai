@@ -14,6 +14,7 @@ export interface Recipe {
   nutrition?: Nutrition;
   author?: UserRef;
   status?: RecipeStatus;
+  popularity?: PopularityMetrics;
 }
 
 export interface IngredientLine {
@@ -44,6 +45,12 @@ export interface UserRef {
   avatarUrl?: string;
 }
 
+export interface PopularityMetrics {
+  views: number;
+  likes: number;
+  favorites: number;
+}
+
 export type RecipeStatus = 'draft' | 'processing' | 'pending_review' | 'published';
 
 export interface JobStatus {
@@ -66,7 +73,7 @@ export interface RecipeSearchParams {
   limit?: number;
   search?: string;
   tags?: string[];
-  sort?: 'title' | 'createdAt' | 'servings' | 'calories';
+  sort?: 'title' | 'createdAt' | 'servings' | 'calories' | 'view_count' | 'like_count' | 'favorite_count';
   order?: 'asc' | 'desc';
 }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Search, Clock, Users, ChefHat, Tag, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Clock, Users, ChefHat, Tag, AlertCircle, RefreshCw, User, Eye, Heart } from 'lucide-react';
 import { getRecipes, getTags, searchRecipes } from '../../../lib/api';
 import type { Recipe, Tag as TagType, RecipeSearchParams } from '../../../types';
 
@@ -291,6 +291,34 @@ const Browse = () => {
                   <h3 className="text-lg font-semibold group-hover:text-primary transition-colors line-clamp-2">
                     {recipe.title}
                   </h3>
+
+                  {/* Author attribution */}
+                  {recipe.author && (
+                    <div className="flex items-center space-x-1 mt-2 text-sm text-muted-foreground">
+                      <User className="h-3 w-3" />
+                      <Link
+                        to={`/profile/${recipe.author.id}`}
+                        className="hover:text-primary transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        by {recipe.author.name}
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* Popularity indicators */}
+                  {recipe.popularity && (
+                    <div className="flex items-center space-x-3 mt-2 text-xs text-muted-foreground">
+                      <div className="flex items-center space-x-1">
+                        <Eye className="h-3 w-3" />
+                        <span>{recipe.popularity.views} views</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Heart className="h-3 w-3" />
+                        <span>{recipe.popularity.likes}</span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex items-center space-x-4 mt-3 text-sm text-muted-foreground">
                     {recipe.servings && (

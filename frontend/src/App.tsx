@@ -104,6 +104,10 @@ function App() {
                           </ProtectedRoute>
                         }
                       />
+                      <Route
+                        path="/profile/:id"
+                        element={<Profile />}
+                      />
 
                       {/* Admin routes - require admin role */}
                       <Route

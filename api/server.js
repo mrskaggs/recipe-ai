@@ -75,8 +75,14 @@ async function runMigrations(client) {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_instructions_recipe_id ON recipe_instructions(recipe_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_instructions_step ON recipe_instructions(recipe_id, step_number)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_recipe_id ON recipe_tags(recipe_id)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_tag_id ON recipe_tags(tag_id)`);
+          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_recipe_id ON recipe_tags(recipe_id)`);
+          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_tags_tag_id ON recipe_tags(tag_id)`);
+          // Indexes for new popularity tables
+          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_recipe_id ON recipe_views(recipe_id)`);
+          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_user_id ON recipe_views(user_id)`);
+          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_views_viewed_at ON recipe_views(viewed_at)`);
+          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_favorites_user_id ON recipe_favorites(user_id)`);
+          await client.query(`CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_id ON recipe_likes(user_id)`);
 
     // Update existing recipes with default values
     console.log('Updating existing recipes with default values...');
@@ -285,7 +291,7 @@ app.get('/api/recipes', async (req, res) => {
     }
 
     // Validate sort field
-    const allowedSortFields = ['title', 'created_at', 'servings', 'calories'];
+    const allowedSortFields = ['title', 'created_at', 'servings', 'calories', 'view_count', 'like_count', 'favorite_count'];
     const sortField = allowedSortFields.includes(sort) ? sort : 'created_at';
     const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
 
@@ -297,7 +303,7 @@ app.get('/api/recipes', async (req, res) => {
     const countResult = await pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].total);
 
-    // Get recipes with pagination
+    // Get recipes with pagination and popularity metrics
     const query = `
       SELECT
         r.id,
@@ -309,10 +315,19 @@ app.get('/api/recipes', async (req, res) => {
         r.fat_g,
         r.notes,
         r.created_at,
+        u.id as author_id,
+        u.display_name as author_name,
         (SELECT COALESCE(array_agg(ingredient), '{}') FROM recipe_ingredients WHERE recipe_id = r.id) as ingredients,
         (SELECT COALESCE(array_agg(instruction ORDER BY step_number), '{}') FROM recipe_instructions WHERE recipe_id = r.id) as instructions,
-        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags
+        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags,
+        COALESCE(rv.view_count, 0) as view_count,
+        COALESCE(rl.like_count, 0) as like_count,
+        COALESCE(rf.fav_count, 0) as favorite_count
       FROM recipes r
+      LEFT JOIN users u ON r.user_id = u.id
+      LEFT JOIN (SELECT recipe_id, COUNT(*) as view_count FROM recipe_views WHERE viewed_at >= CURRENT_DATE - INTERVAL '30 days' GROUP BY recipe_id) rv ON r.id = rv.recipe_id
+      LEFT JOIN (SELECT recipe_id, COUNT(*) as like_count FROM recipe_likes GROUP BY recipe_id) rl ON r.id = rl.recipe_id
+      LEFT JOIN (SELECT recipe_id, COUNT(*) as fav_count FROM recipe_favorites GROUP BY recipe_id) rf ON r.id = rf.recipe_id
       ${whereClause}
       ORDER BY r.${sortField} ${sortOrder}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -341,7 +356,15 @@ app.get('/api/recipes', async (req, res) => {
         carbs: recipe.carbs_g || undefined,
         fat: recipe.fat_g || undefined,
       } : undefined,
-      author: undefined, // Not implemented
+      author: recipe.author_id && recipe.author_name ? {
+        id: recipe.author_id,
+        name: recipe.author_name
+      } : undefined,
+      popularity: {
+        views: recipe.view_count || 0,
+        likes: recipe.like_count || 0,
+        favorites: recipe.favorite_count || 0
+      },
       status: 'published', // Default status
     }));
 
@@ -386,10 +409,19 @@ app.get('/api/recipes/:id', async (req, res) => {
         r.fat_g,
         r.notes,
         r.created_at,
+        u.id as author_id,
+        u.display_name as author_name,
         (SELECT COALESCE(array_agg(ingredient), '{}') FROM recipe_ingredients WHERE recipe_id = r.id) as ingredients,
         (SELECT COALESCE(array_agg(instruction ORDER BY step_number), '{}') FROM recipe_instructions WHERE recipe_id = r.id) as instructions,
-        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags
+        (SELECT COALESCE(array_agg(t.tag), '{}') FROM recipe_tags rt JOIN tags t ON rt.tag_id = t.id WHERE rt.recipe_id = r.id) as tags,
+        COALESCE(rv.view_count, 0) as view_count,
+        COALESCE(rl.like_count, 0) as like_count,
+        COALESCE(rf.fav_count, 0) as favorite_count
       FROM recipes r
+      LEFT JOIN users u ON r.user_id = u.id
+      LEFT JOIN (SELECT recipe_id, COUNT(*) as view_count FROM recipe_views WHERE viewed_at >= CURRENT_DATE - INTERVAL '30 days' GROUP BY recipe_id) rv ON r.id = rv.recipe_id
+      LEFT JOIN (SELECT recipe_id, COUNT(*) as like_count FROM recipe_likes GROUP BY recipe_id) rl ON r.id = rl.recipe_id
+      LEFT JOIN (SELECT recipe_id, COUNT(*) as fav_count FROM recipe_favorites GROUP BY recipe_id) rf ON r.id = rf.recipe_id
       WHERE r.id = $1
     `, [id]);
 
@@ -419,7 +451,15 @@ app.get('/api/recipes/:id', async (req, res) => {
         carbs: recipe.carbs_g || undefined,
         fat: recipe.fat_g || undefined,
       } : undefined,
-      author: undefined, // Not implemented
+      author: recipe.author_id && recipe.author_name ? {
+        id: recipe.author_id,
+        name: recipe.author_name
+      } : undefined,
+      popularity: {
+        views: recipe.view_count || 0,
+        likes: recipe.like_count || 0,
+        favorites: recipe.favorite_count || 0
+      },
       status: 'published', // Default status
     };
 

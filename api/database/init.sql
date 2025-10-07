@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     username VARCHAR(100) UNIQUE,
+    display_name VARCHAR(100),
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('admin', 'user')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +60,34 @@ CREATE TABLE IF NOT EXISTS recipe_tags (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create recipe_views table for popularity tracking
+CREATE TABLE IF NOT EXISTS recipe_views (
+    id SERIAL PRIMARY KEY,
+    recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, -- nullable for anonymous views
+    ip_address INET,
+    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Remove the NOT NULL constraint on user_id for recipe_views (for anonymous views)
+ALTER TABLE recipe_views ALTER COLUMN user_id DROP NOT NULL;
+
+-- Create recipe_favorites table
+CREATE TABLE IF NOT EXISTS recipe_favorites (
+    recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (recipe_id, user_id)
+);
+
+-- Create recipe_likes table
+CREATE TABLE IF NOT EXISTS recipe_likes (
+    recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (recipe_id, user_id)
+);
+
 -- Migration: Add user_id column to recipes table if it doesn't exist
 DO $$
 BEGIN
@@ -75,6 +104,16 @@ BEGIN
     END IF;
 END $$;
 
+-- Migration: Add display_name column to users table if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'display_name') THEN
+        ALTER TABLE users ADD COLUMN display_name VARCHAR(100);
+        -- Set display_name to username if username exists, otherwise use email prefix
+        UPDATE users SET display_name = COALESCE(username, SPLIT_PART(email, '@', 1)) WHERE display_name IS NULL;
+    END IF;
+END $$;
+
 -- Create indexes for better performance (after migrations to ensure columns exist)
 CREATE INDEX IF NOT EXISTS idx_recipes_title ON recipes(title);
 CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at);
@@ -85,6 +124,12 @@ CREATE INDEX IF NOT EXISTS idx_recipe_instructions_step ON recipe_instructions(r
 CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
 CREATE INDEX IF NOT EXISTS idx_recipe_tags_recipe_id ON recipe_tags(recipe_id);
 CREATE INDEX IF NOT EXISTS idx_recipe_tags_tag_id ON recipe_tags(tag_id);
+-- Indexes for new popularity tables
+CREATE INDEX IF NOT EXISTS idx_recipe_views_recipe_id ON recipe_views(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_views_user_id ON recipe_views(user_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_views_viewed_at ON recipe_views(viewed_at);
+CREATE INDEX IF NOT EXISTS idx_recipe_favorites_user_id ON recipe_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_id ON recipe_likes(user_id);
 
 -- Insert some sample data for testing
 INSERT INTO recipes (title, servings, calories, protein_g, carbs_g, fat_g, notes) VALUES
