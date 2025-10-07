@@ -390,6 +390,7 @@ app.get('/api/recipes', async (req, res) => {
   } catch (err) {
     console.error('Error fetching recipes:', err);
     // Return mock data when database is not available
+    const { page = 1, limit = 10 } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const startIndex = (pageNum - 1) * limitNum;
