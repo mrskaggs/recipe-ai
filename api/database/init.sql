@@ -163,3 +163,90 @@ ON CONFLICT DO NOTHING;
 INSERT INTO recipe_tags (recipe_id, tag_id) VALUES
 (1, 1), (1, 2), (1, 3)
 ON CONFLICT DO NOTHING;
+
+-- Create comments table for recipe comments
+CREATE TABLE IF NOT EXISTS recipe_comments (
+    id SERIAL PRIMARY KEY,
+    recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES recipe_comments(id) ON DELETE CASCADE, -- For threaded comments
+    content TEXT NOT NULL,
+    is_moderated BOOLEAN DEFAULT FALSE,
+    moderated_by INTEGER REFERENCES users(id),
+    moderated_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create recipe chat messages table
+CREATE TABLE IF NOT EXISTS recipe_chat_messages (
+    id SERIAL PRIMARY KEY,
+    recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    message_type VARCHAR(20) DEFAULT 'message' CHECK (message_type IN ('message', 'system', 'suggestion')),
+    edited BOOLEAN DEFAULT FALSE,
+    edited_at TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create recipe suggestions table
+CREATE TABLE IF NOT EXISTS recipe_suggestions (
+    id SERIAL PRIMARY KEY,
+    recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255),
+    description TEXT NOT NULL,
+    suggestion_type VARCHAR(50) DEFAULT 'improvement' CHECK (suggestion_type IN ('improvement', 'variation', 'correction')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'implemented')),
+    accepted_by INTEGER REFERENCES users(id),
+    accepted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create user reports table
+CREATE TABLE IF NOT EXISTS user_reports (
+    id SERIAL PRIMARY KEY,
+    reporter_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    reported_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    content_type VARCHAR(50) NOT NULL CHECK (content_type IN ('comment', 'chat_message', 'profile', 'other')),
+    content_id INTEGER, -- ID of the offending content
+    reason VARCHAR(100) NOT NULL CHECK (reason IN ('spam', 'harassment', 'inappropriate', 'offensive', 'other')),
+    description TEXT,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'investigating', 'resolved', 'dismissed')),
+    reviewed_by INTEGER REFERENCES users(id),
+    reviewed_at TIMESTAMP,
+    action_taken TEXT, -- Description of action taken
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create user blocks table (one-way blocking)
+CREATE TABLE IF NOT EXISTS user_blocks (
+    blocker_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    blocked_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (blocker_id, blocked_user_id)
+);
+
+-- Create indexes for social features
+CREATE INDEX IF NOT EXISTS idx_recipe_comments_recipe_id ON recipe_comments(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_comments_user_id ON recipe_comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_comments_parent_id ON recipe_comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_comments_created_at ON recipe_comments(created_at);
+CREATE INDEX IF NOT EXISTS idx_recipe_chat_recipe_id ON recipe_chat_messages(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_chat_user_id ON recipe_chat_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_chat_created_at ON recipe_chat_messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_recipe_suggestions_recipe_id ON recipe_suggestions(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_suggestions_user_id ON recipe_suggestions(user_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_suggestions_status ON recipe_suggestions(status);
+CREATE INDEX IF NOT EXISTS idx_user_reports_reporter_id ON user_reports(reporter_id);
+CREATE INDEX IF NOT EXISTS idx_user_reports_reported_user_id ON user_reports(reported_user_id);
+CREATE INDEX IF NOT EXISTS idx_user_reports_content_type ON user_reports(content_type);
+CREATE INDEX IF NOT EXISTS idx_user_reports_status ON user_reports(status);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker_id ON user_blocks(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked_user_id ON user_blocks(blocked_user_id);

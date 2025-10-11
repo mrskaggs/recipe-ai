@@ -429,6 +429,280 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/social/recipes/{recipeId}/comments:
+    get:
+      summary: Get comments for a recipe
+      description: Retrieve all comments (threaded) for a specific recipe
+      tags:
+        - Social
+        - Comments
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          description: Recipe ID
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Comments per page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+
+    post:
+      summary: Create a comment
+      description: Post a new comment or reply to an existing comment
+      tags:
+        - Social
+        - Comments
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          description: Recipe ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  maxLength: 1000
+                parentId:
+                  type: integer
+                  description: Parent comment ID for replies
+      responses:
+        '201':
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Invalid input
+        '403':
+          description: Blocked from commenting
+
+  /api/social/comments/{commentId}:
+    put:
+      summary: Update a comment
+      description: Edit an existing comment (owners only)
+      tags:
+        - Social
+        - Comments
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          description: Comment ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Comment updated successfully
+        '403':
+          description: Not authorized to edit
+
+    delete:
+      summary: Delete a comment
+      description: Delete a comment (owners or admins)
+      tags:
+        - Social
+        - Comments
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          description: Comment ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Comment deleted successfully
+        '403':
+          description: Not authorized to delete
+
+  /api/social/reports:
+    post:
+      summary: Report content
+      description: Report inappropriate content (comments, chat messages, profiles)
+      tags:
+        - Social
+        - Moderation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contentType
+                - contentId
+                - reason
+              properties:
+                contentType:
+                  type: string
+                  enum: ['comment', 'chat_message', 'profile', 'other']
+                contentId:
+                  type: integer
+                reason:
+                  type: string
+                  enum: ['spam', 'harassment', 'inappropriate', 'offensive', 'other']
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Report submitted successfully
+
+    get:
+      summary: Get reports (admin only)
+      description: Retrieve pending reports for admin review
+      tags:
+        - Social
+        - Moderation
+        - Admin
+      responses:
+        '200':
+          description: Reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Report'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+
+  /api/social/recipes/{recipeId}/suggestions:
+    get:
+      summary: Get recipe suggestions
+      description: Retrieve user-submitted suggestions for recipe improvements
+      tags:
+        - Social
+        - Suggestions
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          description: Recipe ID
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Suggestions per page
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Suggestions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Suggestion'
+                  total:
+                    type: integer
+
+    post:
+      summary: Create a suggestion
+      description: Submit a suggestion for recipe improvement
+      tags:
+        - Social
+        - Suggestions
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          description: Recipe ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - description
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 2000
+                suggestionType:
+                  type: string
+                  enum: ['improvement', 'variation', 'correction']
+                  default: 'improvement'
+      responses:
+        '201':
+          description: Suggestion created successfully
+
 components:
   schemas:
     User:
@@ -641,6 +915,108 @@ components:
           type: string
           description: Error message
           example: "Internal server error"
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        recipeId:
+          type: integer
+        parentId:
+          type: integer
+          description: null for top-level comments
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        author:
+          type: object
+          properties:
+            id:
+              type: integer
+            displayName:
+              type: string
+            role:
+              type: string
+              enum: ['admin', 'user']
+        replyCount:
+          type: integer
+          description: Number of replies to this comment
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+        contentType:
+          type: string
+          enum: ['comment', 'chat_message', 'profile', 'other']
+        contentId:
+          type: integer
+        reason:
+          type: string
+          enum: ['spam', 'harassment', 'inappropriate', 'offensive', 'other']
+        description:
+          type: string
+        status:
+          type: string
+          enum: ['pending', 'investigating', 'resolved', 'dismissed']
+        createdAt:
+          type: string
+          format: date-time
+        reporter:
+          type: object
+          properties:
+            id:
+              type: integer
+            displayName:
+              type: string
+        reportedUser:
+          type: object
+          properties:
+            id:
+              type: integer
+            displayName:
+              type: string
+
+    Suggestion:
+      type: object
+      properties:
+        id:
+          type: integer
+        recipeId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        suggestionType:
+          type: string
+          enum: ['improvement', 'variation', 'correction']
+        status:
+          type: string
+          enum: ['pending', 'accepted', 'rejected', 'implemented']
+        createdAt:
+          type: string
+          format: date-time
+        author:
+          type: object
+          properties:
+            id:
+              type: integer
+            displayName:
+              type: string
+            role:
+              type: string
 
   securitySchemes:
     BearerAuth:

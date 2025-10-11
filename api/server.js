@@ -5,14 +5,26 @@ const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const fs = require('fs');
+const http = require('http');
+const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
 const { pool } = require('./config/database');
 const { authenticateToken } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const socialRoutes = require('./routes/social');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:8080",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 const port = process.env.PORT || 3001;
 
 // Middleware
@@ -263,6 +275,11 @@ app.use('/api/auth', authRoutes);
 
 // Admin routes
 app.use('/api/admin', adminRoutes);
+
+// Social features routes
+app.use('/api/social', socialRoutes);
+
+
 
 // Health check
 app.get('/health', (req, res) => {
@@ -1561,10 +1578,224 @@ app.get('/', (req, res) => {
   res.redirect('/api-docs');
 });
 
+// Socket.io middleware for authentication
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication token required'));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    socket.userRole = decoded.role;
+    socket.displayName = decoded.displayName;
+    next();
+  } catch (err) {
+    next(new Error('Invalid authentication token'));
+  }
+});
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  console.log(`User ${socket.userId} connected via Socket.io`);
+
+  // Join recipe-specific chat rooms
+  socket.on('join-recipe-chat', (recipeId) => {
+    socket.join(`recipe-chat-${recipeId}`);
+    console.log(`User ${socket.userId} joined recipe chat room: ${recipeId}`);
+
+    // Send recent chat messages for this recipe
+    pool.query(`
+      SELECT
+        rcm.id,
+        rcm.content,
+        rcm.message_type,
+        rcm.created_at,
+        rcm.edited,
+        rcm.edited_at,
+        rcm.is_deleted,
+        u.id as user_id,
+        u.display_name,
+        u.role
+      FROM recipe_chat_messages rcm
+      JOIN users u ON rcm.user_id = u.id
+      WHERE rcm.recipe_id = $1 AND rcm.is_deleted = FALSE
+      ORDER BY rcm.created_at DESC
+      LIMIT 50
+    `, [recipeId])
+    .then(result => {
+      socket.emit('chat-history', result.rows.reverse());
+    })
+    .catch(err => {
+      console.error('Error fetching chat history:', err);
+      socket.emit('error', 'Failed to load chat history');
+    });
+  });
+
+  // Leave recipe chat room
+  socket.on('leave-recipe-chat', (recipeId) => {
+    socket.leave(`recipe-chat-${recipeId}`);
+    console.log(`User ${socket.userId} left recipe chat room: ${recipeId}`);
+  });
+
+  // Handle new chat messages
+  socket.on('send-message', async (data) => {
+    const { recipeId, content, messageType = 'message' } = data;
+
+    try {
+      // Verify user can access this recipe and isn't blocked
+      const recipeCheck = await pool.query(
+        'SELECT id FROM recipes WHERE id = $1',
+        [recipeId]
+      );
+
+      if (recipeCheck.rows.length === 0) {
+        socket.emit('error', 'Recipe not found');
+        return;
+      }
+
+      // Check if user is blocked from chatting
+      const blockerCheck = await pool.query(`
+        SELECT 1 FROM user_blocks WHERE blocked_user_id = $1 LIMIT 1
+      `, [socket.userId]);
+
+      if (blockerCheck.rows.length > 0) {
+        socket.emit('error', 'You are blocked from chatting');
+        return;
+      }
+
+      // Insert message into database
+      const result = await pool.query(`
+        INSERT INTO recipe_chat_messages (recipe_id, user_id, content, message_type)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, created_at, edited, is_deleted
+      `, [recipeId, socket.userId, content, messageType]);
+
+      const messageData = {
+        id: result.rows[0].id,
+        recipeId: parseInt(recipeId),
+        userId: socket.userId,
+        userDisplayName: socket.displayName,
+        userRole: socket.userRole,
+        content: content,
+        messageType: messageType,
+        createdAt: result.rows[0].created_at,
+        edited: result.rows[0].edited,
+        editedAt: null,
+        isDeleted: false
+      };
+
+      // Broadcast to all users in the recipe chat room
+      io.to(`recipe-chat-${recipeId}`).emit('new-message', messageData);
+
+    } catch (err) {
+      console.error('Error sending chat message:', err);
+      socket.emit('error', 'Failed to send message');
+    }
+  });
+
+  // Handle message editing
+  socket.on('edit-message', async (data) => {
+    const { messageId, newContent } = data;
+
+    try {
+      // Verify ownership and update message
+      const result = await pool.query(`
+        UPDATE recipe_chat_messages
+        SET content = $1, edited = TRUE, edited_at = CURRENT_TIMESTAMP
+        WHERE id = $2 AND user_id = $3 AND is_deleted = FALSE
+        RETURNING recipe_id, created_at, edited_at
+      `, [newContent, messageId, socket.userId]);
+
+      if (result.rows.length === 0) {
+        socket.emit('error', 'Message not found or access denied');
+        return;
+      }
+
+      const { recipe_id, created_at, edited_at } = result.rows[0];
+
+      // Broadcast the edit
+      io.to(`recipe-chat-${recipe_id}`).emit('message-edited', {
+        id: messageId,
+        content: newContent,
+        edited: true,
+        editedAt: edited_at
+      });
+
+    } catch (err) {
+      console.error('Error editing message:', err);
+      socket.emit('error', 'Failed to edit message');
+    }
+  });
+
+  // Handle message deletion (for user or admin)
+  socket.on('delete-message', async (data) => {
+    const { messageId } = data;
+
+    try {
+      // Allow deletion by message owner or admin
+      const isAdmin = socket.userRole === 'admin';
+      const whereClause = isAdmin ?
+        'id = $1 AND is_deleted = FALSE' :
+        'id = $1 AND user_id = $2 AND is_deleted = FALSE';
+
+      const params = isAdmin ? [messageId] : [messageId, socket.userId];
+
+      const result = await pool.query(`
+        UPDATE recipe_chat_messages
+        SET is_deleted = TRUE, deleted_at = CURRENT_TIMESTAMP
+        WHERE ${whereClause}
+        RETURNING recipe_id, deleted_at
+      `, params);
+
+      if (result.rows.length === 0) {
+        socket.emit('error', 'Message not found or access denied');
+        return;
+      }
+
+      const { recipe_id, deleted_at } = result.rows[0];
+
+      // Broadcast the deletion
+      io.to(`recipe-chat-${recipe_id}`).emit('message-deleted', {
+        id: messageId,
+        deletedAt: deleted_at
+      });
+
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      socket.emit('error', 'Failed to delete message');
+    }
+  });
+
+  // Handle user typing indicators
+  socket.on('typing-start', (recipeId) => {
+    socket.to(`recipe-chat-${recipeId}`).emit('user-typing', {
+      userId: socket.userId,
+      displayName: socket.displayName,
+      isTyping: true
+    });
+  });
+
+  socket.on('typing-stop', (recipeId) => {
+    socket.to(`recipe-chat-${recipeId}`).emit('user-typing', {
+      userId: socket.userId,
+      displayName: socket.displayName,
+      isTyping: false
+    });
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`User ${socket.userId} disconnected from Socket.io`);
+  });
+});
+
 // Start server
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Recipe API server running on port ${port}`);
   console.log(`API Documentation available at: http://localhost:${port}/api-docs`);
+  console.log(`WebSocket server ready for real-time features`);
 });
 
 module.exports = app;
