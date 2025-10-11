@@ -23,11 +23,11 @@ Has been **RESOLVED** by updating the port configuration to use configurable por
 2. Choose **Repository** as the build method
 3. Enter repository URL: `https://github.com/mrskaggs/recipe-ai.git`
 4. Set compose file path: `docker-compose.yml`
-5. **Add these environment variables** (adjust ports if needed):
-   ```
-   FRONTEND_PORT=8080
-   API_PORT=3001
-   API_BASE_URL=/api
+5. **Optional**: Set environment variables (defaults will work for most deployments):
+   ```bash
+   FRONTEND_PORT=8080  # Default: 8080
+   API_PORT=3001       # Default: 3001
+   API_BASE_URL=/api   # Default: /api (required for nginx proxy)
    ```
 6. Click **Deploy the stack**
 
@@ -75,13 +75,13 @@ The `API_BASE_URL` determines how the frontend connects to the backend API. **IM
 
 ### Option 1: Nginx Proxy (Recommended for Production)
 ```
-API_BASE_URL=
+API_BASE_URL=/api
 ```
-(Leave empty or don't set this variable)
-- **How it works**: Frontend makes requests to `/api/recipes`, nginx proxies to `http://api:3001/api/recipes`
+(Set to `/api` for proper nginx proxy routing)
+- **How it works**: Frontend makes requests to `/api/recipes`, nginx proxies to `http://api:3001/recipes` (strips `/api` prefix)
 - **Advantages**: Single port, cleaner URLs, better security
 - **Use when**: Deploying the full stack together
-- **Critical**: Must be empty (or unset) to avoid double `/api` paths
+- **Critical**: Must be `/api` for nginx to route requests correctly to backend
 
 ### Option 2: Direct External API Access
 ```
@@ -101,13 +101,13 @@ API_BASE_URL=http://recipe-api:3001
 
 ### ⚠️ Critical Fix Applied
 
-**Problem**: The frontend was making requests to `localhost:3001` instead of using the proxy, causing database connection issues.
+**Problem**: Frontend API calls were missing the `/api` prefix, causing 404 errors because nginx only proxies `/api/*` routes to the backend.
 
-**Root Cause**: Vite environment variables are processed at build time, not runtime. The `VITE_API_BASE_URL` needs to be available during the Docker build process.
+**Root Cause**: `VITE_API_BASE_URL` was incorrectly set to empty string, causing API calls like `/recipes` instead of `/api/recipes`. Nginx configuration only routes `/api/*` requests.
 
-**Solution**: Updated `Dockerfile.frontend` to accept `VITE_API_BASE_URL` as a build argument and updated `docker-compose.yml` to pass it correctly.
+**Solution**: Updated environment configuration to set `VITE_API_BASE_URL=/api` so frontend makes requests to `/api/recipes` which nginx properly routes to `http://api:3001/recipes`.
 
-**Result**: Frontend now correctly uses the configured API base URL and connects to the proper database through Docker networking.
+**Result**: API calls now route correctly through nginx proxy in Docker deployments.
 
 ## After Deployment
 
