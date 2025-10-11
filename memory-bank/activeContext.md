@@ -20,6 +20,9 @@ Successfully implemented comprehensive social features including comments, sugge
 ### Docker API URL Configuration ✅ COMPLETED
 Successfully resolved double `/api` prefix issue in Docker deployment by fixing frontend baseURL configuration and removing hardcoded `/api` prefixes from all API endpoints. Docker proxied requests now work correctly through nginx.
 
+### Portainer Deployment API Routing Fix ✅ COMPLETED
+Successfully fixed missing `/api` prefix issue when deployed via Portainer. Updated `VITE_API_BASE_URL` from empty string to `/api` in environment configuration. Frontend now correctly prefixes all API calls with `/api`, allowing nginx proxy to route them to the backend at port 3001. This resolves API call failures in production Docker deployments.
+
 ## Recent Changes
 
 ### User-Owned Recipe Management ✅ COMPLETED
