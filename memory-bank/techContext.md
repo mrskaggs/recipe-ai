@@ -10,11 +10,13 @@
 - **shadcn/ui**: High-quality React components built on Radix UI and Tailwind
 - **Radix UI**: Accessible, unstyled UI primitives (@radix-ui/react-tabs, @radix-ui/react-dialog, @radix-ui/react-alert-dialog, @radix-ui/react-select)
 - **React Router 6.20.0**: Declarative routing for React applications
-- **Zustand 4.4.0**: Lightweight state management solution
+- **Zustand 4.4.0**: Lightweight state management solution for auth and social features
 - **TanStack Query 5.14.0**: Powerful data synchronization for React
 - **React Hook Form 7.48.0**: Performant forms with easy validation
 - **Zod 3.22.0**: TypeScript-first schema validation
 - **Axios 1.6.0**: HTTP client for API communication
+- **Sonner 1.3.0**: Toast notification library for user feedback
+- **Socket.IO Client 4.7.0**: Real-time bidirectional communication for chat features
 
 ### Backend Technologies
 - **Node.js 18+**: JavaScript runtime for server-side development

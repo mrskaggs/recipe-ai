@@ -1,10 +1,11 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-
-// Remove trailing slash to avoid double slashes
-const baseURL = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+// API_BASE_URL should be:
+// - http://localhost:3001 for local development (without Docker)
+// - Empty string ('') for Docker/ngrok deployment (nginx handles /api/* routing)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const baseURL = API_BASE_URL; // Use exactly what's set in .env
 
 export const http: AxiosInstance = axios.create({
   baseURL: baseURL,

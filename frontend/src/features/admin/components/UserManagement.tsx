@@ -40,7 +40,7 @@ export const UserManagement = () => {
       if (search) params.append('search', search);
       if (roleFilter !== 'all') params.append('role', roleFilter);
 
-      const response = await http.get<UsersResponse>(`/api/admin/users?${params}`);
+      const response = await http.get<UsersResponse>(`/admin/users?${params}`);
       return response.data;
     },
   });
@@ -48,7 +48,7 @@ export const UserManagement = () => {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<User> }) => {
-      const response = await http.put<User>(`/api/admin/users/${id}`, data);
+      const response = await http.put<User>(`/admin/users/${id}`, data);
       return response.data;
     },
     onSuccess: () => {
@@ -65,7 +65,7 @@ export const UserManagement = () => {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (id: number) => {
-      await http.delete(`/api/admin/users/${id}`);
+      await http.delete(`/admin/users/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });

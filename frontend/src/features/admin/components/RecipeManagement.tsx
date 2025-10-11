@@ -38,7 +38,7 @@ export const RecipeManagement = () => {
 
       if (search) params.append('search', search);
 
-      const response = await http.get<RecipesResponse>(`/api/admin/recipes?${params}`);
+      const response = await http.get<RecipesResponse>(`/admin/recipes?${params}`);
       return response.data;
     },
   });
@@ -46,7 +46,7 @@ export const RecipeManagement = () => {
   // Update recipe mutation
   const updateRecipeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Recipe> }) => {
-      const response = await http.put<Recipe>(`/api/admin/recipes/${id}`, data);
+      const response = await http.put<Recipe>(`/admin/recipes/${id}`, data);
       return response.data;
     },
     onSuccess: () => {
@@ -64,7 +64,7 @@ export const RecipeManagement = () => {
   // Delete recipe mutation
   const deleteRecipeMutation = useMutation({
     mutationFn: async (id: string) => {
-      await http.delete(`/api/admin/recipes/${id}`);
+      await http.delete(`/admin/recipes/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-recipes'] });

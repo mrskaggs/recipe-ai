@@ -144,6 +144,7 @@ class User {
       id: this.id,
       email: this.email,
       username: this.username,
+      displayName: this.username || this.email.split('@')[0],
       role: this.role,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

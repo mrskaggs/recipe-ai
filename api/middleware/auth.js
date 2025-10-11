@@ -20,8 +20,11 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Attach user to request object
-    req.user = user;
+    // Attach user to request object with displayName
+    req.user = {
+      ...user.toJSON(),
+      displayName: user.username || user.email.split('@')[0]
+    };
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {

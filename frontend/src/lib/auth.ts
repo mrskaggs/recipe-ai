@@ -89,12 +89,12 @@ export const jwtUtils = {
 // Authentication API calls
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    const response = await http.post<AuthResponse>('/api/auth/login', credentials);
+    const response = await http.post<AuthResponse>('/auth/login', credentials);
     return response.data;
   },
 
   register: async (userData: RegisterRequest): Promise<AuthResponse> => {
-    const response = await http.post<AuthResponse>('/api/auth/register', userData);
+    const response = await http.post<AuthResponse>('/auth/register', userData);
     return response.data;
   },
 
@@ -104,24 +104,24 @@ export const authApi = {
       throw new Error('No refresh token available');
     }
 
-    const response = await http.post<AuthResponse>('/api/auth/refresh', {
+    const response = await http.post<AuthResponse>('/auth/refresh', {
       refreshToken
     });
     return response.data;
   },
 
   getProfile: async (): Promise<User> => {
-    const response = await http.get<{ user: User }>('/api/auth/me');
+    const response = await http.get<{ user: User }>('/auth/me');
     return response.data.user;
   },
 
   updateProfile: async (updates: Partial<Pick<User, 'username' | 'email'>>): Promise<User> => {
-    const response = await http.put<{ user: User }>('/api/auth/me', updates);
+    const response = await http.put<{ user: User }>('/auth/me', updates);
     return response.data.user;
   },
 
   changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    await http.post('/api/auth/change-password', {
+    await http.post('/auth/change-password', {
       currentPassword,
       newPassword
     });

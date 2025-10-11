@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useReactToPrint } from 'react-to-print';
@@ -12,16 +12,30 @@ import {
   Share2,
   Heart,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  MessageCircle,
+  Flag,
+  Lightbulb
 } from 'lucide-react';
 import { getRecipe } from '../../../lib/api';
 import { useFavorites, useToasts } from '../../../stores/recipeStore';
+import { useSocialStore } from '../../../stores/socialStore';
+import { useAuthStore } from '../../../features/auth/stores/authStore';
 import PrintCard from '../../../components/PrintCard';
+import CommentList from '../../social/components/CommentList';
+import CommentForm from '../../social/components/CommentForm';
+import ReportDialog from '../../social/components/ReportDialog';
+import SuggestionForm from '../../social/components/SuggestionForm';
+import { Button } from '../../../components/ui/button';
 
 const RecipeDetail = () => {
   const { id } = useParams();
-  const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions' | 'nutrition'>('ingredients');
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions' | 'nutrition' | 'comments'>('ingredients');
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+
+  const { user } = useAuthStore();
 
   const { data: recipe, isLoading, error: _error } = useQuery({
     queryKey: ['recipe', id],
@@ -29,8 +43,24 @@ const RecipeDetail = () => {
     enabled: !!id,
   });
 
+const {
+  fetchComments,
+  comments
+} = useSocialStore();
+
   const { toggleFavorite, isFavorite } = useFavorites();
   const { addToast } = useToasts();
+
+  // Initialize social data when recipe loads
+  const recipeIdNum = id ? parseInt(id) : null;
+
+  React.useEffect(() => {
+    if (recipeIdNum) {
+      fetchComments(recipeIdNum);
+      // TODO: Uncomment when suggestions UI is implemented
+      // fetchSuggestions(recipeIdNum);
+    }
+  }, [recipeIdNum, fetchComments]);
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -88,6 +118,30 @@ const RecipeDetail = () => {
     });
   };
 
+  const handleReport = () => {
+    if (!user) {
+      addToast({
+        type: 'error',
+        title: 'Authentication Required',
+        description: 'Please log in to report content.',
+      });
+      return;
+    }
+    setShowReportDialog(true);
+  };
+
+  const handleSuggest = () => {
+    if (!user) {
+      addToast({
+        type: 'error',
+        title: 'Authentication Required',
+        description: 'Please log in to submit suggestions.',
+      });
+      return;
+    }
+    setShowSuggestionForm(true);
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -132,10 +186,14 @@ const RecipeDetail = () => {
     );
   }
 
+  const commentCount = recipeIdNum ? comments[recipeIdNum]?.total || 0 : 0;
+  const suggestionCount = 0; // TODO: Restore when suggestions are implemented
+
   const tabs = [
     { id: 'ingredients', label: 'Ingredients', count: recipe.ingredients?.length || 0 },
     { id: 'instructions', label: 'Instructions', count: recipe.steps?.length || 0 },
     { id: 'nutrition', label: 'Nutrition', count: recipe.nutrition ? 1 : 0 },
+    { id: 'comments', label: 'Comments', count: commentCount },
   ];
 
   return (
@@ -183,6 +241,32 @@ const RecipeDetail = () => {
               <Heart className={`h-4 w-4 mr-2 ${isFavorite(recipe.id) ? 'fill-current' : ''}`} />
               {isFavorite(recipe.id) ? 'Saved' : 'Save'}
             </button>
+
+            {/* Social Action Buttons */}
+            <div className="flex items-center space-x-1 ml-4 border-l pl-4">
+              {recipeIdNum && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSuggest}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Lightbulb className="h-4 w-4 mr-1" />
+                    Suggest ({suggestionCount})
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleReport}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Flag className="h-4 w-4 mr-1" />
+                    Report
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -347,8 +431,56 @@ const RecipeDetail = () => {
               )}
             </div>
           )}
+
+          {activeTab === 'comments' && recipeIdNum && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold">Comments ({commentCount})</h3>
+              </div>
+
+              {/* Comment Form */}
+              {user ? (
+                <CommentForm recipeId={recipeIdNum} />
+              ) : (
+                <div className="p-4 rounded-lg bg-muted/50 text-center">
+                  <MessageCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Please log in to join the conversation.
+                  </p>
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm"
+                  >
+                    Log In to Comment
+                  </Link>
+                </div>
+              )}
+
+              {/* Comments List */}
+              <CommentList recipeId={recipeIdNum} />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Social Dialogs */}
+      {recipeIdNum && (
+        <>
+          <ReportDialog
+            isOpen={showReportDialog}
+            onClose={() => setShowReportDialog(false)}
+            contentType="comment" // Default to comment for now, can be made dynamic
+            contentId={recipeIdNum}
+            recipeId={recipeIdNum}
+          />
+
+          <SuggestionForm
+            isOpen={showSuggestionForm}
+            onClose={() => setShowSuggestionForm(false)}
+            recipeId={recipeIdNum}
+          />
+        </>
+      )}
 
       {/* Hidden Print Component */}
       <div className="hidden print:block">

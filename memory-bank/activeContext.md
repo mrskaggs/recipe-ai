@@ -14,6 +14,12 @@ Successfully implemented comprehensive toast notification system using Sonner li
 ### Secondary Focus: UI/UX Enhancements and Polish ✅ COMPLETED
 Successfully completed comprehensive UI/UX enhancement sprint with significant improvements to user experience, responsiveness, error handling, and performance optimization.
 
+### Social Features Implementation ✅ COMPLETED
+Successfully implemented comprehensive social features including comments, suggestions, reporting, and admin moderation. Complete backend API routes with proper validation, frontend Zustand state management, and database schema for all social interactions.
+
+### Docker API URL Configuration ✅ COMPLETED
+Successfully resolved double `/api` prefix issue in Docker deployment by fixing frontend baseURL configuration and removing hardcoded `/api` prefixes from all API endpoints. Docker proxied requests now work correctly through nginx.
+
 ## Recent Changes
 
 ### User-Owned Recipe Management ✅ COMPLETED
@@ -74,37 +80,82 @@ Successfully completed comprehensive UI/UX enhancement sprint with significant i
 
 ## Next Steps
 
-### Immediate Priorities ✅ COMPLETED
-1. **UI/UX Polish and Enhancements**
-   - ✅ Implement toast notifications for user feedback
-   - ✅ Add loading states and error boundaries throughout the app
-   - ✅ Enhance responsive design for mobile devices
+### Immediate Priorities: Social Platform Complete ✅ COMPLETED
+1. **Comments System UI ✅ COMPLETED**
+   - Built comprehensive `CommentList` and `CommentForm` components with threaded reply support
+   - Added "Comments" tab to recipe detail page with live comment counts
+   - Connected to `socialStore` for full CRUD operations with optimistic updates
+   - Implemented nested comment display with proper indentation and threading
+   - Added in-line edit, delete, reply, and report actions per comment
+   - Integrated complete user authentication and permissions (edit own/own admin comments)
 
-### Short-term Goals (Next 1-2 weeks)
-1. **Feature Enhancements**
-   - ✅ Implement recipe favoriting system (completed in existing codebase)
-   - ✅ Add recipe sharing functionality (completed in existing codebase)
-   - ✅ Enhance search and filtering capabilities
-   - Improve recipe printing and display
+2. **Basic Social Actions UI ✅ COMPLETED**
+   - Added social action buttons to recipe header (Suggest with counts, Report)
+   - Implemented advanced `ReportDialog` with category selection and optional descriptions
+   - Built comprehensive `SuggestionForm` with multiple suggestion types and guidelines
+   - Created robust forms with extensive validation, error handling, and toast notifications
+   - Fixed "Anonymous" display issue by properly implementing user display names
+
+3. **Database Schema and API ✅ COMPLETED**
+   - Created complete social database schema (comments, suggestions, reports, user blocks)
+   - Implemented full REST API endpoints for all social features
+   - Added comprehensive indexing for performance on social queries
+   - Integrated proper authentication middleware with role-based permissions
+
+3. **Admin Moderation UI ✅ COMPLETED**
+   - ✅ Created comprehensive `ReportManagement` component for admin dashboard with report review, status updates, and moderation actions
+   - ✅ Built complete `UserModeration` component for blocking/unblocking users with reason tracking
+   - ✅ Added "Reports" and "Moderation" tabs to admin dashboard (4 total tabs: Users, Reports, Moderation, Recipes)
+   - ✅ Implemented full CRUD operations for user blocks and report management
+   - ✅ Fixed Docker API routing issues for proper container production deployment
+   - **Status**: ✅ COMPLETE and production-ready
+
+### Short-term Goals (Next 1-2 weeks): Complete Social Platform
+1. **Real-time Chat System**
+   - Build `ChatInterface` component with Socket.IO integration
+   - Add typing indicators and message editing features
+   - Integrate chat into recipe detail pages
+   - **Status**: Socket.IO backend ready, UI needed
 
 2. **Code Quality & Testing**
-   - Add unit tests for key components
-   - Implement integration tests for API endpoints
-   - ✅ Add comprehensive error handling
-   - ✅ Performance optimization and code cleanup
+   - Add unit tests for social components (CommentList, CommentForm)
+   - Implement integration tests for social API endpoints
+   - Add end-to-end tests for user comment workflows
+   - **Status**: Test framework setup pending
 
-### Medium-term Goals (Next 4 weeks)
+3. **Content Moderation & Administration**
+   - Implement auto-moderation for comments using AI/content analysis
+   - Create admin dashboard components for report management and user moderation
+   - Research Context7 libraries for content analysis and moderation solutions
+   - Build manual moderation tools for administrators (report review, user blocking)
+   - **Status**: Ready for implementation
+
+4. **Social Feature Completion**
+   - Complete all social integrations across the app
+   - Add notification system for social interactions
+   - Implement social analytics (comment counts, engagement metrics)
+   - **Status**: Requires UI component completion
+
+### Medium-term Goals (Next 2-4 weeks): Enhanced Platform
 1. **Advanced Features**
    - Image upload functionality for recipes
-   - Recipe ratings and reviews system
+   - Recipe ratings and comprehensive review system
    - Meal planning and grocery list generation
-   - Enhanced nutritional analysis features
+   - Enhanced nutritional analysis with user preferences
 
 2. **Production Readiness**
    - Environment configuration for staging/production
    - Monitoring and logging implementation
    - Security hardening and penetration testing
-   - CI/CD pipeline setup
+   - CI/CD pipeline setup with automated deployment
+
+### Content Moderation Task (Next 1-2 weeks)
+- Research and implement auto-moderation for comments using Context7 libraries:
+  - **Sightengine API**: Text content moderation for profanity, hate speech, spam, extremism
+  - **FCakyon Deep Learning**: Academic research library for advanced content analysis
+  - Evaluate API integration vs service costs and implement comment filtering
+  - Add auto-flagging capabilities for suspicious content before posting
+  - Integrate with existing report system for admin review
 
 ## Active Decisions and Considerations
 

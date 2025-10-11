@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { Card, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { Users, ChefHat, Shield } from 'lucide-react';
+import { Users, ChefHat, Shield, Flag } from 'lucide-react';
 import { UserManagement } from '../components/UserManagement';
 import { RecipeManagement } from '../components/RecipeManagement';
+import { ReportManagement } from '../components/ReportManagement';
+import { UserModeration } from '../components/UserModeration';
 
 export const AdminDashboard = () => {
   const { user } = useAuth();
@@ -38,19 +40,35 @@ export const AdminDashboard = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            User Management
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex items-center gap-2">
+            <Flag className="h-4 w-4" />
+            Reports
+          </TabsTrigger>
+          <TabsTrigger value="moderation" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Moderation
           </TabsTrigger>
           <TabsTrigger value="recipes" className="flex items-center gap-2">
             <ChefHat className="h-4 w-4" />
-            Recipe Management
+            Recipes
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-6">
           <UserManagement />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          <ReportManagement />
+        </TabsContent>
+
+        <TabsContent value="moderation" className="space-y-6">
+          <UserModeration />
         </TabsContent>
 
         <TabsContent value="recipes" className="space-y-6">
